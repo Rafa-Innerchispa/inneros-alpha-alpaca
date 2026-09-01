@@ -16,6 +16,28 @@ def test_health_is_paper_only_without_secret_values():
     assert "ALPACA_SECRET_KEY" not in str(body)
 
 
+def test_account_without_credentials_is_truthful_no_trade():
+    response = client.get("/api/account")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["state"] == "NO_TRADE"
+    assert body["source"] == "ALPACA_PAPER"
+    assert body["paper_only"] is True
+    assert body["reason"] == "alpaca_paper_credentials_missing"
+    assert "secret" not in str(body).lower()
+
+
+def test_positions_without_credentials_is_truthful_no_trade():
+    response = client.get("/api/positions")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["state"] == "NO_TRADE"
+    assert body["source"] == "ALPACA_PAPER"
+    assert body["reason"] == "alpaca_paper_credentials_missing"
+
+
 def test_evaluate_intent_blocks_unallowed_symbol():
     response = client.post(
         "/api/intents/evaluate?last_price=100",

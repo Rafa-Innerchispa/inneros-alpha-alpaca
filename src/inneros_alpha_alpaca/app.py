@@ -9,7 +9,7 @@ from .risk import PaperRiskEngine
 from .storage import EvidenceStore
 
 settings = Settings()
-app = FastAPI(title="InnerOS Alpha Alpaca", version="0.1.0")
+app = FastAPI(title="InnerOS Alpha Alpaca", version="0.2.0")
 
 
 @app.get("/health")
@@ -23,6 +23,16 @@ def health() -> dict:
         "alpaca": adapter.ready(),
         "reasoning_url": settings.inneros_reasoning_url,
     }
+
+
+@app.get("/api/account")
+async def account() -> dict:
+    return await AlpacaPaperAdapter(settings).get_account()
+
+
+@app.get("/api/positions")
+async def positions() -> dict:
+    return await AlpacaPaperAdapter(settings).get_positions()
 
 
 @app.get("/api/session", response_model=SessionState)

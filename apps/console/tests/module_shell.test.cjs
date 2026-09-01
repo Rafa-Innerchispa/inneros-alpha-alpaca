@@ -14,6 +14,8 @@ assert.equal(manifest.public_safe.fills, "never-fake");
 assert.equal(manifest.public_safe.real_money, false);
 assert.equal(manifest.routes.health, "/health");
 assert.equal(manifest.routes.session, "/api/session");
+assert.equal(manifest.routes.account, "/api/account");
+assert.equal(manifest.routes.positions, "/api/positions");
 assert.ok(manifest.capabilities.includes("kill.switch"));
 
 const standalone = resolveModuleEntry(new URLSearchParams(""));
@@ -37,6 +39,26 @@ const fixture = {
   portfolio: { equity: 100000, cash: 100000, day_pl: 0, unrealized_pl: 0 },
   positions: [],
 };
+
+const fixturePortfolio = client.mapPortfolio(
+  { state: "NO_TRADE", source: "ALPACA_PAPER", reason: "alpaca_paper_credentials_missing" },
+  fixture.portfolio
+);
+assert.equal(fixturePortfolio.source, "FIXTURE");
+assert.equal(fixturePortfolio.portfolio.equity, 100000);
+
+const realPaperPortfolio = client.mapPortfolio(
+  {
+    state: "PASS",
+    source: "ALPACA_PAPER",
+    account: { equity: "100250", last_equity: "100000", cash: "75000", buying_power: "150000", status: "ACTIVE" },
+  },
+  fixture.portfolio
+);
+assert.equal(realPaperPortfolio.source, "ALPACA_PAPER");
+assert.equal(realPaperPortfolio.portfolio.equity, 100250);
+assert.equal(realPaperPortfolio.portfolio.day_pl, 250);
+
 const paperSession = client.mapLiveSession(
   {
     mode: "paper",
@@ -51,9 +73,22 @@ const paperSession = client.mapLiveSession(
       },
     ],
   },
-  fixture
+  fixture,
+  {
+    state: "PASS",
+    source: "ALPACA_PAPER",
+    account: { equity: "100250", last_equity: "100000", cash: "75000", buying_power: "150000" },
+  },
+  {
+    state: "PASS",
+    source: "ALPACA_PAPER",
+    positions: [{ symbol: "SPY", qty: "1", market_value: "550.10" }],
+  }
 );
 assert.equal(paperSession.source, "ALPACA_PAPER");
+assert.equal(paperSession.portfolio_source, "ALPACA_PAPER");
+assert.equal(paperSession.positions_source, "ALPACA_PAPER");
+assert.equal(paperSession.positions.length, 1);
 assert.equal(paperSession.pipeline.find((row) => row.id === "execution").state, "PASS");
 assert.equal(paperSession.trace[0].correlation_id, "corr-paper-1");
 

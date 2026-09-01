@@ -3,7 +3,7 @@
   "project_id": "inneros-alpha-alpaca",
   "module_id": "alpaca-paper-console",
   "name": "InnerOS Alpha Alpaca",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "paper_only": true,
   "standalone": true,
   "repo": {
@@ -16,12 +16,15 @@
     "embedded": "/app/modules/alpaca-paper-console",
     "health": "/health",
     "session": "/api/session",
+    "account": "/api/account",
+    "positions": "/api/positions",
     "intent": "/api/intents/evaluate",
     "execution": "/api/orders/paper"
   },
-  "permissions": ["module.read", "paper.trade.intent", "paper.trace.read"],
+  "permissions": ["module.read", "paper.account.read", "paper.positions.read", "paper.trade.intent", "paper.trace.read"],
   "capabilities": [
     "portfolio.view",
+    "positions.view",
     "market.snapshot",
     "trade.intent",
     "risk.decision",

@@ -21,6 +21,84 @@ class AlpacaPaperAdapter:
             "credentials_present": bool(headers),
         }
 
+    def _blocked_read(self, reason: str) -> dict[str, Any]:
+        return {
+            "state": TerminalState.NO_TRADE.value,
+            "source": "ALPACA_PAPER",
+            "paper_only": True,
+            "reason": reason,
+        }
+
+    async def _paper_get(self, path: str) -> dict[str, Any] | list[dict[str, Any]]:
+        if not self.settings.alpaca_paper:
+            return self._blocked_read("live_trading_disabled")
+        headers = self.settings.alpaca_headers()
+        if not headers:
+            return self._blocked_read("alpaca_paper_credentials_missing")
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(
+                f"{self.settings.normalized_api_base}{path}",
+                headers=headers,
+            )
+        if response.status_code >= 400:
+            return {
+                "state": TerminalState.FAIL.value,
+                "source": "ALPACA_PAPER",
+                "paper_only": True,
+                "status_code": response.status_code,
+                "reason": "alpaca_paper_request_failed",
+            }
+        data = response.json()
+        return data
+
+    async def get_account(self) -> dict[str, Any]:
+        data = await self._paper_get("/v2/account")
+        if isinstance(data, list) or data.get("state") in {"NO_TRADE", "FAIL"}:
+            return data if isinstance(data, dict) else self._blocked_read("invalid_account_payload")
+        return {
+            "state": TerminalState.PASS.value,
+            "source": "ALPACA_PAPER",
+            "paper_only": True,
+            "account": {
+                "id": str(data.get("id") or ""),
+                "status": data.get("status"),
+                "currency": data.get("currency", "USD"),
+                "equity": data.get("equity"),
+                "cash": data.get("cash"),
+                "buying_power": data.get("buying_power"),
+                "portfolio_value": data.get("portfolio_value"),
+                "last_equity": data.get("last_equity"),
+                "trading_blocked": data.get("trading_blocked"),
+                "account_blocked": data.get("account_blocked"),
+                "pattern_day_trader": data.get("pattern_day_trader"),
+            },
+        }
+
+    async def get_positions(self) -> dict[str, Any]:
+        data = await self._paper_get("/v2/positions")
+        if isinstance(data, dict):
+            return data
+        positions = [
+            {
+                "symbol": row.get("symbol"),
+                "qty": row.get("qty"),
+                "side": row.get("side"),
+                "market_value": row.get("market_value"),
+                "avg_entry_price": row.get("avg_entry_price"),
+                "current_price": row.get("current_price"),
+                "unrealized_pl": row.get("unrealized_pl"),
+                "unrealized_plpc": row.get("unrealized_plpc"),
+            }
+            for row in data
+        ]
+        return {
+            "state": TerminalState.PASS.value,
+            "source": "ALPACA_PAPER",
+            "paper_only": True,
+            "positions": positions,
+            "count": len(positions),
+        }
+
     async def submit_order(self, intent: TradeIntent, risk: RiskDecision) -> ExecutionResult:
         if not risk.allowed:
             return ExecutionResult(
