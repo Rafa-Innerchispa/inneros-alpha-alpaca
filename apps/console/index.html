@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>InnerOS Alpha · Alpaca paper console</title>
+  <link rel="stylesheet" href="./console.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <p class="kicker">InnerOS Alpha · Alpaca AI Trading Agents</p>
+      <h1>Paper trading console</h1>
+    </div>
+    <div class="badges">
+      <span class="badge paper">PAPER $100k</span>
+      <span class="badge fixture" id="source-badge">FIXTURE</span>
+      <span class="badge freeze">Judge freeze</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="col">
+      <article class="card portfolio">
+        <h2>Portfolio</h2>
+        <p class="equity" id="equity">$100,000</p>
+        <dl>
+          <div><dt>Cash</dt><dd id="cash">$100,000</dd></div>
+          <div><dt>Day P&amp;L</dt><dd id="day-pl">$0</dd></div>
+          <div><dt>Unrealized</dt><dd id="upl">$0</dd></div>
+        </dl>
+      </article>
+
+      <article class="card">
+        <h2>Pipeline</h2>
+        <ol class="pipeline" id="pipeline"></ol>
+      </article>
+
+      <article class="card kill">
+        <h2>Kill switch</h2>
+        <p>Default ON. Blocks any local execution path. Cannot place fills from this UI.</p>
+        <button id="kill" type="button" aria-pressed="true">KILL SWITCH ON</button>
+        <p class="status" id="kill-state">BLOCKED · no broker submit</p>
+      </article>
+
+      <article class="card">
+        <h2>Positions</h2>
+        <p id="positions" class="empty">No positions. Truth: empty book, not a simulated fill.</p>
+      </article>
+    </section>
+
+    <section class="col trace-col">
+      <article class="card trace">
+        <div class="trace-head">
+          <h2>Global Live Trace</h2>
+          <code id="corr">alpaca-hackathon-ui-20260901</code>
+        </div>
+        <p class="hint">Rows marked FIXTURE are not live market or broker evidence.</p>
+        <ol id="trace" class="trace-list"></ol>
+      </article>
+    </section>
+  </main>
+
+  <script src="./console.js"></script>
+</body>
+</html>
