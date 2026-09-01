@@ -15,6 +15,9 @@ Governed multi-agent **paper-only** options trading console for the
 | Risk gates | Antigravity `ops_5bfb63ddfe24` | Proposed |
 | Judge / previous hackathon | frozen | Do not touch |
 
+Portable module shell: `inneros.module.json` + `docs/MODULE.md`.
+Codex spine stays on `codex/alpaca-backend-spine-20260901` (`src/`). Do not mix lanes.
+
 ## Demo console (local)
 
 ```bash

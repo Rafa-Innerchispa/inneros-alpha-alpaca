@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="./console.css" />
 </head>
 <body>
+  <nav class="module-nav" aria-label="InnerOS module">
+    <a class="brand" href="./index.html">InnerOS · Alpaca</a>
+    <div class="nav-links">
+      <a href="./index.html">Console</a>
+      <a id="host-back" hidden href="#">Back to InnerOS</a>
+    </div>
+    <span class="badge mode" id="mode-badge">STANDALONE</span>
+  </nav>
+
   <header class="top">
     <div>
       <p class="kicker">InnerOS Alpha · Alpaca AI Trading Agents</p>
@@ -14,20 +23,23 @@
     </div>
     <div class="badges">
       <span class="badge paper">PAPER $100k</span>
-      <span class="badge fixture" id="source-badge">FIXTURE</span>
+      <span class="badge fixture" id="source-badge">LOADING</span>
       <span class="badge freeze">Judge freeze</span>
     </div>
   </header>
+
+  <p class="banner" id="ui-banner" data-state="LOADING">LOADING · contacting fixture or Codex spine</p>
 
   <main class="layout">
     <section class="col">
       <article class="card portfolio">
         <h2>Portfolio</h2>
-        <p class="equity" id="equity">$100,000</p>
+        <p class="equity" id="equity">—</p>
+        <p class="hint" id="portfolio-source">source pending</p>
         <dl>
-          <div><dt>Cash</dt><dd id="cash">$100,000</dd></div>
-          <div><dt>Day P&amp;L</dt><dd id="day-pl">$0</dd></div>
-          <div><dt>Unrealized</dt><dd id="upl">$0</dd></div>
+          <div><dt>Cash</dt><dd id="cash">—</dd></div>
+          <div><dt>Day P&amp;L</dt><dd id="day-pl">—</dd></div>
+          <div><dt>Unrealized</dt><dd id="upl">—</dd></div>
         </dl>
       </article>
 
@@ -38,14 +50,14 @@
 
       <article class="card kill">
         <h2>Kill switch</h2>
-        <p>Default ON. Blocks any local execution path. Cannot place fills from this UI.</p>
+        <p>Default ON. Blocks any local execution path. This UI never posts fills.</p>
         <button id="kill" type="button" aria-pressed="true">KILL SWITCH ON</button>
         <p class="status" id="kill-state">BLOCKED · no broker submit</p>
       </article>
 
       <article class="card">
         <h2>Positions</h2>
-        <p id="positions" class="empty">No positions. Truth: empty book, not a simulated fill.</p>
+        <p id="positions" class="empty">No positions until a live empty book is proven.</p>
       </article>
     </section>
 
@@ -55,12 +67,14 @@
           <h2>Global Live Trace</h2>
           <code id="corr">alpaca-hackathon-ui-20260901</code>
         </div>
-        <p class="hint">Rows marked FIXTURE are not live market or broker evidence.</p>
+        <p class="hint">FIXTURE rows are not broker evidence. LIVE/INNEROS rows come from Codex /api/session.</p>
         <ol id="trace" class="trace-list"></ol>
       </article>
     </section>
   </main>
 
+  <script src="./api-client.js"></script>
+  <script src="./module-shell.js"></script>
   <script src="./console.js"></script>
 </body>
 </html>

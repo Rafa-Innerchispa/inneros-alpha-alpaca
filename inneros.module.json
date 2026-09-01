@@ -1,0 +1,48 @@
+{
+  "schema": "inneros.module/v1",
+  "project_id": "inneros-alpha-alpaca",
+  "module_id": "alpaca-paper-console",
+  "name": "InnerOS Alpha Alpaca",
+  "version": "0.2.0",
+  "paper_only": true,
+  "standalone": true,
+  "repo": {
+    "owner": "Rafa-Innerchispa",
+    "name": "inneros-alpha-alpaca",
+    "ref": "cursor/alpaca-module-shell-20260901"
+  },
+  "routes": {
+    "standalone": "/apps/console/",
+    "embedded": "/app/modules/alpaca-paper-console",
+    "health": "/health",
+    "session": "/api/session",
+    "intent": "/api/intents/evaluate",
+    "execution": "/api/orders/paper"
+  },
+  "permissions": ["module.read", "paper.trade.intent", "paper.trace.read"],
+  "capabilities": [
+    "portfolio.view",
+    "market.snapshot",
+    "trade.intent",
+    "risk.decision",
+    "execution.result",
+    "live.trace",
+    "kill.switch"
+  ],
+  "health": {
+    "path": "/health",
+    "expect": { "ok": true, "paper_only": true }
+  },
+  "agents": ["cursor", "codex", "antigravity"],
+  "connectors": ["alpaca-paper", "inneros-module-gateway"],
+  "auth": {
+    "standalone": "none",
+    "embedded": "inneros-module-gateway",
+    "header": "X-InnerOS-Module-Token",
+    "query_embed": "embed=1"
+  },
+  "public_safe": {
+    "description": "Paper-only options trading console for the Alpaca hackathon. No live money. No secrets in the module.",
+    "fills": "never-fake"
+  }
+}
