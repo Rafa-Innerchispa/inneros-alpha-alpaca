@@ -1,0 +1,50 @@
+{
+  "schema": "inneros.module/v1",
+  "project_id": "inneros-alpha-alpaca",
+  "module_id": "alpaca-paper-console",
+  "name": "InnerOS Alpha Alpaca",
+  "version": "0.3.0",
+  "paper_only": true,
+  "standalone": true,
+  "repo": {
+    "owner": "Rafa-Innerchispa",
+    "name": "inneros-alpha-alpaca",
+    "ref": "local-agent/alpaca-e2e-integration-20260901"
+  },
+  "routes": {
+    "standalone": "/apps/console/",
+    "embedded": "/app/modules/alpaca-paper-console",
+    "health": "/health",
+    "session": "/api/session",
+    "intent": "/api/intents/evaluate",
+    "execution": "/api/orders/paper"
+  },
+  "permissions": ["module.read", "paper.trade.intent", "paper.trace.read"],
+  "capabilities": [
+    "portfolio.view",
+    "market.snapshot",
+    "trade.intent",
+    "risk.decision",
+    "execution.result",
+    "live.trace",
+    "kill.switch"
+  ],
+  "health": {
+    "path": "/health",
+    "expect": { "ok": true, "paper_only": true }
+  },
+  "agents": ["local-dev-swarm", "codex", "cursor"],
+  "connectors": ["alpaca-paper", "inneros-module-gateway"],
+  "auth": {
+    "standalone": "none",
+    "embedded": "inneros-module-gateway",
+    "query_embed": "embed=1",
+    "gateway_required_query": "require_gateway=1",
+    "token_query": "module_token"
+  },
+  "public_safe": {
+    "description": "Paper-only trading module for the Alpaca hackathon. Local-first reasoning, deterministic risk, and evidence-first execution.",
+    "fills": "never-fake",
+    "real_money": false
+  }
+}

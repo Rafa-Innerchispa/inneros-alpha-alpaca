@@ -1,0 +1,9 @@
+{
+  "name": "inneros-alpha-alpaca-integration",
+  "private": true,
+  "version": "0.3.0",
+  "scripts": {
+    "test": "node apps/console/tests/module_shell.test.cjs",
+    "test:console": "node apps/console/tests/module_shell.test.cjs"
+  }
+}
