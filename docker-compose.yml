@@ -1,0 +1,10 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      ALPACA_PAPER: "true"
+      ALPACA_API_BASE: "https://paper-api.alpaca.markets"

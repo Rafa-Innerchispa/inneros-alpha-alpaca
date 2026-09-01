@@ -1,0 +1,23 @@
+[project]
+name = "inneros-alpha-alpaca"
+version = "0.1.0"
+description = "InnerOS Alpha Alpaca paper-only trading agent backend spine"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116.0",
+  "httpx>=0.28.0",
+  "pydantic>=2.10.0",
+  "pydantic-settings>=2.7.0",
+  "uvicorn[standard]>=0.34.0",
+]
+
+[project.optional-dependencies]
+mongo = ["pymongo>=4.10.0"]
+test = ["pytest>=8.3.0", "pytest-asyncio>=0.25.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
