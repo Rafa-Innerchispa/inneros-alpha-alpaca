@@ -24,6 +24,27 @@ class LocalReasoningClient:
         self.model = os.getenv("INNEROS_REASONING_MODEL", DEFAULT_MODEL)
         self.timeout_seconds = float(os.getenv("INNEROS_REASONING_TIMEOUT", "25"))
 
+    def status(self) -> dict:
+        """Return redacted readiness for the local reasoning runtime."""
+        status = {
+            "provider": "local-amd-5",
+            "runtime": "vllm",
+            "model": self.model,
+            "reachable": False,
+            "model_available": False,
+        }
+        try:
+            with httpx.Client(timeout=min(self.timeout_seconds, 3.0)) as client:
+                response = client.get(f"{self.base_url}/models")
+                response.raise_for_status()
+                payload = response.json()
+            models = [str(item.get("id") or "") for item in payload.get("data", [])]
+            status["reachable"] = True
+            status["model_available"] = self.model in models
+        except Exception as exc:
+            status["error"] = type(exc).__name__
+        return status
+
     def _no_trade(self, snapshot: MarketSnapshot, reason: str) -> TradeIntent:
         return TradeIntent(
             ticker=snapshot.ticker,
@@ -55,7 +76,7 @@ class LocalReasoningClient:
             "You may propose only a PAPER-trading TradeIntent. You cannot approve risk or execute. "
             "Return exactly one JSON object and no commentary. If evidence is insufficient, return "
             "bias=NEUTRAL, strategy=no_trade, confidence=0, estimated_max_loss=0. "
-            "Never invent an option_symbol. Only include it if present in the supplied snapshot."
+            "Never invent an option_symbol. Contract selection is deterministic code outside the LLM."
         )
         schema = {
             "ticker": snapshot.ticker,
@@ -73,7 +94,7 @@ class LocalReasoningClient:
         }
         user = (
             "Produce a TradeIntent from this market snapshot. Hard limits: initial DTE 14-45 days; "
-            "risk approval is external and deterministic; do not bypass it.\n"
+            "risk approval and contract selection are external and deterministic; do not bypass them.\n"
             f"Expected JSON shape: {json.dumps(schema)}\n"
             f"Snapshot: {snapshot.model_dump_json()}"
         )
@@ -94,6 +115,7 @@ class LocalReasoningClient:
             raw = self._extract_json(text)
             raw["ticker"] = snapshot.ticker
             raw["correlation_id"] = snapshot.correlation_id
+            raw["option_symbol"] = None
             return TradeIntent.model_validate(raw)
         except Exception as exc:  # fail closed into NO_TRADE
             return self._no_trade(snapshot, f"Local reasoning unavailable or invalid: {type(exc).__name__}")

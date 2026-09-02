@@ -1,0 +1,23 @@
+[Unit]
+Description=InnerOS Alpha Alpaca PAPER control plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/inneros-alpha-alpaca
+Environment=ALPACA_PAPER=true
+Environment=INNEROS_REASONING_URL=http://127.0.0.1:8000/v1
+Environment=INNEROS_REASONING_MODEL=QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ
+Environment=INNEROS_KILL_SWITCH_DEFAULT=true
+EnvironmentFile=-%h/.config/inneros-alpha/runtime.env
+ExecStart=%h/projects/inneros-alpha-alpaca/.venv/bin/python -m uvicorn src.main:app --host 0.0.0.0 --port 8088
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=default.target

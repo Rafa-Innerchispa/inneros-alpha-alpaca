@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import os
 import uuid
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .models import ExecutionResult, MarketSnapshot, PipelineResult, RiskDecision, TradeIntent
+from .models import ExecutionResult, MarketSnapshot, PipelineResult, RiskDecision, TradeIntent, TruthState
 from .pipeline import PipelineService
 
 
@@ -15,13 +18,13 @@ class KillSwitchRequest(BaseModel):
     enabled: bool
 
 
-app = FastAPI(title="InnerOS Alpha", version="0.3.0")
+app = FastAPI(title="InnerOS Alpha", version="0.5.0")
 
 origins = [
     origin.strip()
     for origin in os.getenv(
         "INNEROS_CONSOLE_ORIGINS",
-        "http://127.0.0.1:8099,http://localhost:8099",
+        "http://127.0.0.1:8099,http://localhost:8099,http://127.0.0.1:8088,http://localhost:8088",
     ).split(",")
     if origin.strip()
 ]
@@ -40,6 +43,7 @@ risk_engine = pipeline.risk_engine
 
 @app.get("/health")
 def health() -> dict:
+    """Fast liveness endpoint. Never probes external services or returns secrets."""
     return {
         "ok": True,
         "service": "inneros-alpha",
@@ -47,11 +51,49 @@ def health() -> dict:
         "paper_only": True,
         "alpaca_configured": adapter.configured,
         "kill_switch": pipeline.kill_switch,
+        "reasoning_provider": "local-amd-5",
         "reasoning_model": pipeline.reasoner.model,
-        "reasoning_url": pipeline.reasoner.base_url,
         "evidence_backend": pipeline.evidence.backend,
         "evidence_last_error": pipeline.evidence.last_error,
     }
+
+
+@app.get("/ready")
+def ready() -> dict:
+    """Redacted dependency preflight for demo/runtime orchestration."""
+    reasoning = pipeline.reasoner.status()
+    analysis_ready = bool(reasoning.get("reachable") and reasoning.get("model_available"))
+
+    alpaca_reachable = False
+    alpaca_error = None
+    if adapter.configured:
+        try:
+            portfolio_view = adapter.get_portfolio()
+            alpaca_reachable = portfolio_view.source == TruthState.PAPER_LIVE
+        except Exception as exc:
+            alpaca_error = type(exc).__name__
+
+    paper_path_ready = bool(analysis_ready and alpaca_reachable)
+    return {
+        "ok": analysis_ready,
+        "paper_only": True,
+        "analysis_ready": analysis_ready,
+        "paper_path_ready": paper_path_ready,
+        "paper_execution_armed": bool(paper_path_ready and not pipeline.kill_switch),
+        "kill_switch": pipeline.kill_switch,
+        "reasoning": reasoning,
+        "alpaca": {
+            "credentials_present": adapter.configured,
+            "paper_api_reachable": alpaca_reachable,
+            "error": alpaca_error,
+        },
+        "console": {"mounted": True, "path": "/console/"},
+    }
+
+
+@app.get("/")
+def root():
+    return RedirectResponse(url="/console/", status_code=307)
 
 
 @app.get("/api/portfolio")
@@ -131,3 +173,8 @@ def evidence(correlation_id: str) -> dict:
     if not document:
         raise HTTPException(status_code=404, detail="Evidence not found")
     return document
+
+
+CONSOLE_DIR = Path(__file__).resolve().parents[1] / "apps" / "console"
+if CONSOLE_DIR.is_dir():
+    app.mount("/console", StaticFiles(directory=str(CONSOLE_DIR), html=True), name="console")
