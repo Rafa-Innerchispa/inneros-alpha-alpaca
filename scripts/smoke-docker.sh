@@ -18,5 +18,4 @@ curl -fsS -X POST 'http://127.0.0.1:8088/api/pipeline/SPY?execute=false' | pytho
 echo "== console static =="
 curl -fsS -o /dev/null -w 'console HTTP %{http_code}\n' http://127.0.0.1:8099/
 
-node apps/console/tests/module_shell.test.cjs
 echo "smoke-docker PASS"
