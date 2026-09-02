@@ -4,37 +4,27 @@
   "portfolio": {
     "equity": 100000,
     "cash": 100000,
-    "buying_power": 100000,
+    "buying_power": 200000,
     "unrealized_pl": 0,
     "day_pl": 0
   },
   "positions": [],
   "pipeline": [
-    { "id": "market", "label": "Market", "state": "NO_TRADE", "detail": "No live snapshot. Fixture session only." },
-    { "id": "strategy", "label": "Strategy", "state": "NO_TRADE", "detail": "LLM may propose TradeIntent only. Not executed." },
-    { "id": "risk", "label": "Risk", "state": "BLOCKED", "detail": "Backend spine not connected. Risk engine not live." },
-    { "id": "execution", "label": "Execution", "state": "NO_TRADE", "detail": "No fills. Kill switch default ON until backend PASS." }
+    { "id": "market", "label": "Market", "state": "FIXTURE", "detail": "Fallback snapshot because the backend is unavailable." },
+    { "id": "strategy", "label": "Strategy", "state": "NO_TRADE", "detail": "No local Qwen evidence in fallback mode." },
+    { "id": "risk", "label": "Risk", "state": "BLOCKED", "detail": "Fail-closed because live backend evidence is unavailable." },
+    { "id": "execution", "label": "Execution", "state": "NO_TRADE", "detail": "No broker request and no simulated fill." }
   ],
   "trace": [
     {
       "ts": "2026-09-01T19:20:00Z",
       "source": "FIXTURE",
-      "from": "cursor-console",
-      "to": "session",
-      "event": "console_boot",
-      "status": "PASS",
-      "correlation_id": "alpaca-hackathon-ui-20260901",
-      "detail": "Demo console loaded. Paper $100k. No broker call."
-    },
-    {
-      "ts": "2026-09-01T19:20:01Z",
-      "source": "FIXTURE",
-      "from": "risk",
-      "to": "execution",
-      "event": "backend_missing",
+      "from": "console",
+      "to": "fallback-session",
+      "event": "fixture_fallback",
       "status": "BLOCKED",
-      "correlation_id": "alpaca-hackathon-ui-20260901",
-      "detail": "inneros-alpha-alpaca spine not on main yet. No order submitted."
+      "correlation_id": "alpaca-fixture-fallback",
+      "detail": "Console is in explicit fallback mode. No market, model, risk, or broker action is claimed live."
     }
   ]
 }

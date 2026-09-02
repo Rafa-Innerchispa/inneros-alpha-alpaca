@@ -13,7 +13,9 @@ def utc_now() -> datetime:
 
 class TruthState(str, Enum):
     LIVE = "LIVE"
+    PAPER_LIVE = "PAPER_LIVE"
     FIXTURE = "FIXTURE"
+    PASS = "PASS"
     NO_TRADE = "NO_TRADE"
     BLOCKED = "BLOCKED"
     FAIL = "FAIL"
@@ -40,6 +42,8 @@ class TradeIntent(BaseModel):
     delta_target: float | None = None
     rationale: str
     estimated_max_loss: float = Field(ge=0)
+    option_symbol: str | None = None
+    quantity: int = Field(default=1, ge=1, le=10)
     correlation_id: str
 
 
@@ -65,5 +69,33 @@ class PortfolioView(BaseModel):
     cash: float
     buying_power: float
     open_positions: int
+    day_pl: float = 0
+    unrealized_pl: float = 0
     paper: bool = True
     source: TruthState = TruthState.FIXTURE
+
+
+class TraceEvent(BaseModel):
+    ts: datetime = Field(default_factory=utc_now)
+    source: str
+    from_agent: str
+    to_agent: str
+    event: str
+    status: TruthState
+    detail: str
+    correlation_id: str
+
+
+class PipelineRequest(BaseModel):
+    ticker: str = "SPY"
+    execute: bool = False
+
+
+class PipelineResult(BaseModel):
+    correlation_id: str
+    paper_only: bool = True
+    snapshot: MarketSnapshot
+    intent: TradeIntent
+    risk: RiskDecision
+    execution: ExecutionResult
+    trace: list[TraceEvent] = Field(default_factory=list)

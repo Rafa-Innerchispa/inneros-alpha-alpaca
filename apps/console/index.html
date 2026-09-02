@@ -10,12 +10,13 @@
   <header class="top">
     <div>
       <p class="kicker">InnerOS Alpha · Alpaca AI Trading Agents</p>
-      <h1>Paper trading console</h1>
+      <h1>Sovereign paper-trading control plane</h1>
     </div>
     <div class="badges">
-      <span class="badge paper">PAPER $100k</span>
-      <span class="badge fixture" id="source-badge">FIXTURE</span>
-      <span class="badge freeze">Judge freeze</span>
+      <span class="badge paper">PAPER ONLY</span>
+      <span class="badge fixture" id="source-badge">CHECKING</span>
+      <span class="badge freeze" id="backend-badge">API CHECKING</span>
+      <span class="badge local">LOCAL-FIRST AI</span>
     </div>
   </header>
 
@@ -32,20 +33,34 @@
       </article>
 
       <article class="card">
-        <h2>Pipeline</h2>
+        <div class="card-head">
+          <h2>Agent pipeline</h2>
+          <span class="badge paper">ANALYSIS ONLY</span>
+        </div>
+        <div class="controls">
+          <label>
+            Symbol
+            <select id="ticker">
+              <option value="SPY">SPY</option>
+              <option value="AAPL">AAPL</option>
+              <option value="NVDA">NVDA</option>
+            </select>
+          </label>
+          <button id="run-analysis" type="button">RUN LOCAL ANALYSIS</button>
+        </div>
         <ol class="pipeline" id="pipeline"></ol>
       </article>
 
       <article class="card kill">
-        <h2>Kill switch</h2>
-        <p>Default ON. Blocks any local execution path. Cannot place fills from this UI.</p>
+        <h2>Server kill switch</h2>
+        <p>Default ON. Risk and execution enforce this on the backend, not only in the browser.</p>
         <button id="kill" type="button" aria-pressed="true">KILL SWITCH ON</button>
-        <p class="status" id="kill-state">BLOCKED · no broker submit</p>
+        <p class="status" id="kill-state">BLOCKED · server execution path closed</p>
       </article>
 
       <article class="card">
         <h2>Positions</h2>
-        <p id="positions" class="empty">No positions. Truth: empty book, not a simulated fill.</p>
+        <p id="positions" class="empty">No positions loaded yet.</p>
       </article>
     </section>
 
@@ -53,9 +68,9 @@
       <article class="card trace">
         <div class="trace-head">
           <h2>Global Live Trace</h2>
-          <code id="corr">alpaca-hackathon-ui-20260901</code>
+          <code id="corr">no-run-yet</code>
         </div>
-        <p class="hint">Rows marked FIXTURE are not live market or broker evidence.</p>
+        <p class="hint">LIVE/PAPER_LIVE rows come from connected services. FIXTURE rows are explicitly simulated. One correlation ID follows the full pipeline.</p>
         <ol id="trace" class="trace-list"></ol>
       </article>
     </section>
