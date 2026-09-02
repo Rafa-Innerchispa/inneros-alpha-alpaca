@@ -16,6 +16,7 @@ Environment=ALPACA_COMPETITION_ACCOUNT_EMAIL=test@soindu.com
 Environment=INNEROS_REASONING_URL=http://127.0.0.1:18000/v1
 Environment=INNEROS_REASONING_MODEL=QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ
 Environment=INNEROS_KILL_SWITCH_DEFAULT=true
+Environment=INNEROS_ALPHA_WRITEUP_FINALIZED=true
 EnvironmentFile=-%h/.config/inneros-alpha/runtime.env
 ExecStart=%h/inneros/inneros_core/platform/venv/bin/python -m uvicorn src.main:app --host 0.0.0.0 --port 8088
 Restart=on-failure
