@@ -4,22 +4,27 @@ InnerOS Alpha is a modular, local-first **paper-trading control plane** for the 
 
 **Paper only. No live money. No secrets in this repository.**
 
-The product is not a standalone trading bot. It is a detachable InnerOS financial module where an AI strategy agent can propose a structured `TradeIntent`, but deterministic code owns risk approval, the server kill switch, duplicate protection, and broker execution.
+Public judge console: `https://alpaca.creatorcore.ai/console/`
+
+The product is not a standalone trading bot. It is a detachable InnerOS financial module where an AI strategy agent can propose a structured `TradeIntent`, but deterministic code owns contract selection, risk approval, the server kill switch, duplicate protection, and broker execution.
 
 ## Current working spine
 
 ```text
-Alpaca Market Data / FIXTURE
+Alpaca Market + Account Context
           |
           v
 MarketSnapshot
           |
           v
 Local Strategy Agent
-AMD .5 / Qwen3-Coder via vLLM
+Private Qwen3-Coder / vLLM
           |
           v
 TradeIntent
+          |
+          v
+Deterministic Options Contract Selector
           |
           v
 Deterministic Risk Engine
@@ -27,7 +32,7 @@ Deterministic Risk Engine
           |
           v
 Execution Agent
-Alpaca PAPER endpoint only
+Alpaca PAPER Trading API only
           |
           v
 Evidence Store + Global Live Trace
@@ -35,6 +40,18 @@ same correlation_id end-to-end
 ```
 
 If local reasoning is unreachable or returns invalid JSON, the system fails closed into `NO_TRADE`. If the broker is not configured, execution is `BLOCKED`. The UI never invents fills or P&L.
+
+## Alpaca MCP and Trading API
+
+The Trading API is the only write path and is hard-bound to `https://paper-api.alpaca.markets`.
+
+The official Alpaca MCP V2 server is integrated as a **read-only sidecar** using explicit toolsets:
+
+```text
+account,assets,stock-data,options-data,news
+```
+
+The `trading` MCP toolset is deliberately excluded. The LLM can inspect Alpaca-native context but cannot bypass deterministic contract selection, risk, or the Execution Agent.
 
 ## Truth states
 
@@ -54,40 +71,39 @@ Backend:
 python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8088
 ```
 
-Console:
+The FastAPI app mounts the console at `/console/`. For a standalone static preview:
 
 ```bash
 python3 -m http.server 8099 --directory apps/console
 ```
 
-Open `http://127.0.0.1:8099/`.
-
-The console attempts the backend at `http://127.0.0.1:8088`. Override it with:
-
-```text
-http://127.0.0.1:8099/?api=http://HOST:PORT
-```
-
 ## Configuration
 
-Copy `.env.example` to your private runtime environment. Do not commit credentials.
+Copy `.env.example` to a private runtime environment. Do not commit credentials.
 
-Important variables:
+Canonical variables:
 
 - `ALPACA_PAPER=true`
+- `ALPACA_PAPER_TRADE=true`
 - `ALPACA_API_BASE=https://paper-api.alpaca.markets`
-- `ALPACA_KEY_ID`
+- `ALPACA_API_KEY`
 - `ALPACA_SECRET_KEY`
+- `ALPACA_TOOLSETS=account,assets,stock-data,options-data,news`
 - `INNEROS_REASONING_URL`
 - `INNEROS_REASONING_MODEL=QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ`
 - `INNEROS_KILL_SWITCH_DEFAULT=true`
 - optional `INNEROS_MONGO_URI` for durable evidence
 
-On the AMD .5 node, the resident strategy model is served through the private OpenAI-compatible vLLM endpoint. External paid models are not the default execution path.
+`ALPACA_KEY_ID` remains accepted by the Trading API adapter for backward compatibility, but `ALPACA_API_KEY` is the canonical shared name for Trading API + Alpaca MCP.
 
-## API
+The resident strategy model is served through a private OpenAI-compatible vLLM endpoint. Hostnames, LAN addresses and tunnel details remain in untracked runtime configuration rather than the public repository. External paid models are not the default execution path.
+
+## Readiness and API
 
 - `GET /health`
+- `GET /ready`
+- `GET /api/mcp/status`
+- `GET /api/submission/status`
 - `GET /api/portfolio`
 - `GET /api/market/{ticker}`
 - `GET /api/intent/{ticker}`
@@ -98,14 +114,42 @@ On the AMD .5 node, the resident strategy model is served through the private Op
 - `GET /api/trace/{correlation_id}`
 - `GET /api/evidence/{correlation_id}`
 
+Mutable broker controls require the server-side `X-InnerOS-Admin-Token` gate. If the gate is not configured, public writes fail closed.
+
+## Controlled PAPER E2E proof
+
+Preflight only. This cannot submit an order:
+
+```bash
+python -m src.controlled_paper_e2e SPY
+```
+
+The final controlled competition proof requires an explicit flag:
+
+```bash
+python -m src.controlled_paper_e2e SPY --confirm-paper-order
+```
+
+Before permitting one PAPER pipeline execution, the helper requires:
+
+1. Alpaca PAPER credentials;
+2. `PAPER_LIVE` account context;
+3. USD 100,000 equity before the first controlled order;
+4. the local Qwen runtime and expected model to be available;
+5. the server kill switch to start ON.
+
+The helper captures the Alpaca order ID and pipeline `correlation_id`, verifies correlation consistency and evidence persistence, and re-arms the kill switch in `finally`, including exception paths. It never claims a fill or P&L that Alpaca has not returned.
+
 ## Tests
 
 ```bash
 python3 -m compileall -q src tests
-python3 -m pytest -q
+python3 -m pytest tests -q
 ```
 
-The current validation branch has API, risk, adapter, pipeline, reasoning fail-closed, and correlation-ID tests.
+Current post-merge validation: **52/52 tests PASS**.
+
+Coverage includes API safety, PAPER-only adapter guards, reasoning fail-closed behavior, deterministic contract/risk logic, correlation-ID integrity, admin write gates, MCP readiness, submission readiness, controlled PAPER E2E kill-switch recovery, and public-repository hygiene.
 
 ## InnerOS module contract
 
@@ -114,13 +158,16 @@ The current validation branch has API, risk, adapter, pipeline, reasoning fail-c
 ## Repository layout
 
 ```text
-apps/console/          responsive paper-trading console
-src/main.py            FastAPI surface
-src/reasoning.py       local Qwen strategy adapter
-src/risk.py            deterministic risk gates
-src/alpaca_adapter.py  paper-only Alpaca adapter
-src/pipeline.py        orchestrated pipeline + trace
-src/evidence.py        memory/Mongo evidence store
-inneros.module.json    detachable InnerOS module manifest
-tests/                 safety and contract tests
+apps/console/                responsive paper-trading console
+src/main.py                  FastAPI surface
+src/reasoning.py             local Qwen strategy adapter
+src/contracts.py             deterministic options selector
+src/risk.py                  deterministic risk gates
+src/alpaca_adapter.py        PAPER-only Alpaca adapter
+src/pipeline.py              orchestrated pipeline + trace
+src/controlled_paper_e2e.py  one-command final PAPER proof
+src/evidence.py              memory/Mongo evidence store
+mcp/                         official Alpaca MCP integration config
+inneros.module.json          detachable InnerOS module manifest
+tests/                       safety and contract regressions
 ```
