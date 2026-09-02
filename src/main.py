@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from .mcp_readiness import alpaca_mcp_readiness
 from .models import ExecutionResult, MarketSnapshot, PipelineResult, RiskDecision, TradeIntent, TruthState
 from .pipeline import PipelineService
 
@@ -18,7 +19,7 @@ class KillSwitchRequest(BaseModel):
     enabled: bool
 
 
-app = FastAPI(title="InnerOS Alpha", version="0.5.0")
+app = FastAPI(title="InnerOS Alpha", version="0.6.0")
 
 origins = [
     origin.strip()
@@ -63,6 +64,7 @@ def ready() -> dict:
     """Redacted dependency preflight for demo/runtime orchestration."""
     reasoning = pipeline.reasoner.status()
     analysis_ready = bool(reasoning.get("reachable") and reasoning.get("model_available"))
+    mcp = alpaca_mcp_readiness()
 
     alpaca_reachable = False
     alpaca_error = None
@@ -74,11 +76,13 @@ def ready() -> dict:
             alpaca_error = type(exc).__name__
 
     paper_path_ready = bool(analysis_ready and alpaca_reachable)
+    hackathon_ready = bool(paper_path_ready and mcp.ready)
     return {
         "ok": analysis_ready,
         "paper_only": True,
         "analysis_ready": analysis_ready,
         "paper_path_ready": paper_path_ready,
+        "hackathon_ready": hackathon_ready,
         "paper_execution_armed": bool(paper_path_ready and not pipeline.kill_switch),
         "kill_switch": pipeline.kill_switch,
         "reasoning": reasoning,
@@ -87,8 +91,15 @@ def ready() -> dict:
             "paper_api_reachable": alpaca_reachable,
             "error": alpaca_error,
         },
+        "alpaca_mcp": mcp.public_dict(),
         "console": {"mounted": True, "path": "/console/"},
     }
+
+
+@app.get("/api/mcp/status")
+def mcp_status() -> dict:
+    """Return the redacted Alpaca MCP safety/readiness contract."""
+    return alpaca_mcp_readiness().public_dict()
 
 
 @app.get("/")
