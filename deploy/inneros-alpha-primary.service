@@ -7,6 +7,12 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/home/rlopez/projects/inneros-alpha-alpaca
 Environment=ALPACA_PAPER=true
+Environment=ALPACA_PAPER_TRADE=true
+Environment=ALPACA_API_BASE=https://paper-api.alpaca.markets
+Environment=ALPACA_DATA_BASE=https://data.alpaca.markets
+Environment=ALPACA_TOOLSETS=account,assets,stock-data,options-data,news
+Environment=ALPACA_COMPETITION_ACCOUNT_DEDICATED=true
+Environment=ALPACA_COMPETITION_ACCOUNT_EMAIL=test@soindu.com
 Environment=INNEROS_REASONING_URL=http://127.0.0.1:18000/v1
 Environment=INNEROS_REASONING_MODEL=QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ
 Environment=INNEROS_KILL_SWITCH_DEFAULT=true
