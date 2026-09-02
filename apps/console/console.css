@@ -13,6 +13,20 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 button, select { font: inherit; }
+.module-nav {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 24px; border-bottom: 1px solid var(--line); background: #0a111c;
+}
+.module-nav a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 700; }
+.truth-banner {
+  margin: 0; padding: 8px 24px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+  border-bottom: 1px solid var(--line); color: var(--muted); background: #0c1320;
+}
+.truth-banner.LOADING { color: var(--accent); }
+.truth-banner.FIXTURE, .truth-banner.NO_TRADE { color: var(--notrade); }
+.truth-banner.BLOCKED { color: var(--blocked); }
+.truth-banner.FAIL { color: var(--fail); }
+.truth-banner.PASS, .truth-banner.LIVE, .truth-banner.PAPER_LIVE { color: var(--pass); }
 .top {
   display: flex; justify-content: space-between; gap: 16px; align-items: flex-start;
   padding: 20px 24px; border-bottom: 1px solid var(--line);
@@ -73,6 +87,7 @@ dd { margin: 0; font-weight: 700; }
   .trace-list { max-height: none; }
 }
 @media (max-width: 560px) {
+  .module-nav, .truth-banner { padding-inline: 12px; }
   .top { flex-direction: column; }
   .layout { padding-inline: 12px; }
   .controls { grid-template-columns: 1fr; }
