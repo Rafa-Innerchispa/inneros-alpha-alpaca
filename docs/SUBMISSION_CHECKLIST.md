@@ -13,7 +13,7 @@ Truth rule: do not mark an item complete without evidence.
 - [x] Dedicated competition-account requirement is documented.
 - [x] One-page write-up exists.
 - [x] Public judge console is live at `https://alpaca.creatorcore.ai/console/`.
-- [x] `/ready` reports `code_ready=true` and local Qwen reachable on the AMD runtime.
+- [x] `/ready` reports `code_ready=true` and local Qwen reachable on the private AMD runtime.
 
 ## Account and live-integration proof
 
@@ -48,9 +48,9 @@ Truth rule: do not mark an item complete without evidence.
 - [x] Mark write-up finalized in runtime readiness.
 - [ ] Record judge-facing demo/video.
 - [ ] Store final demo/video URL in runtime readiness.
-- [ ] Final README check: setup, PAPER-only guard, architecture, Alpaca MCP/Trading API, tests.
-- [ ] Verify repository contains no credentials or private topology.
-- [ ] Run complete test suite on final branch/main.
+- [x] Final README check: setup, PAPER-only guard, architecture, Alpaca MCP/Trading API, controlled E2E and tests.
+- [x] Verify repository contains no credentials, competition-account identity or private deployment topology. Guarded by `tests/test_repository_hygiene.py`.
+- [x] Run complete test suite on final branch: **55/55 PASS** after repository-hygiene hardening.
 - [ ] Verify final submission fields and deadline on the official event page.
 - [ ] Submit only after a final human review of claims, links and evidence.
 
