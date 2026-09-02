@@ -1,0 +1,53 @@
+{
+  "schema_version": "inneros.module.v1",
+  "project_id": "inneros-alpha-alpaca",
+  "module_id": "alpha.trading.alpaca",
+  "name": "InnerOS Alpha",
+  "description": "Local-first multi-agent paper-trading control plane for Alpaca.",
+  "repo": "Rafa-Innerchispa/inneros-alpha-alpaca",
+  "entrypoints": {
+    "ui": "apps/console/index.html",
+    "api": "src.main:app",
+    "health": "/health"
+  },
+  "routes": {
+    "suggested_mount": "/modules/alpha",
+    "api_prefix": "/api"
+  },
+  "permissions": [
+    "alpha.view",
+    "alpha.paper.analyze",
+    "alpha.paper.execute"
+  ],
+  "capabilities": [
+    "market_snapshot",
+    "local_strategy_reasoning",
+    "deterministic_risk",
+    "alpaca_paper_execution",
+    "correlated_live_trace",
+    "evidence_persistence"
+  ],
+  "agents": [
+    {"id": "market-agent", "runtime": "alpaca-data"},
+    {"id": "strategy-agent", "runtime": "local-amd-5", "model": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ"},
+    {"id": "risk-engine", "runtime": "deterministic-python"},
+    {"id": "execution-agent", "runtime": "alpaca-paper"}
+  ],
+  "connectors": [
+    {"id": "alpaca", "mode": "paper-only", "required": true},
+    {"id": "mongodb", "mode": "optional-evidence", "required": false}
+  ],
+  "security": {
+    "auth_required_when_embedded": true,
+    "demo_scope": "alpha.demo",
+    "paper_only": true,
+    "real_money_allowed": false,
+    "kill_switch_default": true,
+    "secrets_in_repo": false
+  },
+  "public_metadata": {
+    "title": "InnerOS Alpha Trading Agents",
+    "hackathon": "Alpaca AI Trading Agents Hackathon",
+    "safe_for_public_site": true
+  }
+}
