@@ -54,6 +54,14 @@ Backend:
 python3 -m uvicorn src.main:app --host 127.0.0.1 --port 8088
 ```
 
+If the host Python is 3.14+ and `pip install -r requirements.txt` fails on `pydantic-core`, use Docker for the backend and tests:
+
+```bash
+docker run -d --name inneros-alpha-api -p 8088:8088 -v "$PWD:/app" -w /app python:3.12-slim \
+  bash -lc 'pip install -q -r requirements.txt && python -m uvicorn src.main:app --host 0.0.0.0 --port 8088'
+bash scripts/smoke-docker.sh
+```
+
 Console:
 
 ```bash
