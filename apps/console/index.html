@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="./console.css" />
 </head>
 <body>
+  <nav class="module-nav" aria-label="InnerOS module">
+    <a id="host-back" hidden href="#">← InnerOS host</a>
+    <span class="badge freeze" id="mode-badge">STANDALONE</span>
+    <span class="badge fixture" id="truth-badge">LOADING</span>
+  </nav>
+  <p class="truth-banner" id="truth-banner" role="status">LOADING · probing paper backend</p>
   <header class="top">
     <div>
       <p class="kicker">InnerOS Alpha · Alpaca AI Trading Agents</p>
@@ -76,6 +82,8 @@
     </section>
   </main>
 
+  <script src="./module-shell.js"></script>
+  <script src="./api-client.js"></script>
   <script src="./console.js"></script>
 </body>
 </html>

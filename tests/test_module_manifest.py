@@ -10,6 +10,9 @@ def test_inneros_module_manifest_is_portable_and_paper_only():
     assert manifest["security"]["paper_only"] is True
     assert manifest["security"]["real_money_allowed"] is False
     assert manifest["security"]["kill_switch_default"] is True
+    assert manifest["security"]["auth_required_when_embedded"] is True
+    assert manifest["security"]["console_never_submits_fills"] is True
+    assert "embed" in manifest["routes"]["embed_query"]
     strategy = next(agent for agent in manifest["agents"] if agent["id"] == "strategy-agent")
     assert strategy["runtime"] == "local-amd-5"
     assert "Qwen3-Coder" in strategy["model"]

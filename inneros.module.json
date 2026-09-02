@@ -12,7 +12,8 @@
   },
   "routes": {
     "suggested_mount": "/modules/alpha",
-    "api_prefix": "/api"
+    "api_prefix": "/api",
+    "embed_query": ["embed", "host_origin", "back", "require_gateway", "module_token", "api"]
   },
   "permissions": [
     "alpha.view",
@@ -43,7 +44,9 @@
     "paper_only": true,
     "real_money_allowed": false,
     "kill_switch_default": true,
-    "secrets_in_repo": false
+    "secrets_in_repo": false,
+    "console_never_submits_fills": true,
+    "embed_post_message": "inneros.module.ready"
   },
   "public_metadata": {
     "title": "InnerOS Alpha Trading Agents",

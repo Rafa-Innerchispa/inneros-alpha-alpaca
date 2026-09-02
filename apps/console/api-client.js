@@ -1,0 +1,73 @@
+(function (root) {
+  function createAlpacaApiClient(options) {
+    const opts = options || {};
+    const baseUrl = String(opts.baseUrl || "").replace(/\/$/, "");
+    const fetchImpl =
+      opts.fetchImpl || (typeof fetch === "function" ? fetch.bind(root) : null);
+    const timeoutMs = opts.timeoutMs || 8000;
+
+    async function request(path, init) {
+      if (!baseUrl) {
+        throw new Error("no_api_base");
+      }
+      if (!fetchImpl) {
+        throw new Error("no_fetch");
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetchImpl(`${baseUrl}${path}`, {
+          ...(init || {}),
+          headers: {
+            "Content-Type": "application/json",
+            ...((init && init.headers) || {}),
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return await response.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    return {
+      health() {
+        return request("/health");
+      },
+      portfolio() {
+        return request("/api/portfolio");
+      },
+      getKillSwitch() {
+        return request("/api/kill-switch");
+      },
+      setKillSwitch(enabled) {
+        return request("/api/kill-switch", {
+          method: "POST",
+          body: JSON.stringify({ enabled: Boolean(enabled) }),
+        });
+      },
+      runPipeline(ticker) {
+        const symbol = encodeURIComponent(ticker || "SPY");
+        return request(`/api/pipeline/${symbol}?execute=false`, { method: "POST" });
+      },
+      async submitPaperOrder() {
+        return {
+          status: "blocked",
+          state: "BLOCKED",
+          paper_only: true,
+          reasons: ["console_never_submits_fills"],
+          message:
+            "Console never calls POST /api/execute. Kill switch and risk gates own execution on the server.",
+        };
+      },
+    };
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { createAlpacaApiClient };
+  }
+  root.createAlpacaApiClient = createAlpacaApiClient;
+})(typeof globalThis !== "undefined" ? globalThis : this);

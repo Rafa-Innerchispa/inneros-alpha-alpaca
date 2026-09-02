@@ -14,16 +14,24 @@ const esc = (value) =>
     .replaceAll("'", "&#039;");
 
 const params = new URLSearchParams(window.location.search);
+const moduleEntry = window.resolveModuleEntry
+  ? window.resolveModuleEntry(params)
+  : { mode: "standalone", embed: false, allowed: true, reason: "ok" };
 const API_BASE = (
   params.get("api") ||
   window.INNEROS_ALPHA_API ||
   "http://127.0.0.1:8088"
 ).replace(/\/$/, "");
+const api = window.createAlpacaApiClient
+  ? window.createAlpacaApiClient({ baseUrl: API_BASE })
+  : null;
 
 const kill = document.getElementById("kill");
 const killState = document.getElementById("kill-state");
 const sourceBadge = document.getElementById("source-badge");
 const backendBadge = document.getElementById("backend-badge");
+const truthBadge = document.getElementById("truth-badge");
+const truthBanner = document.getElementById("truth-banner");
 const runButton = document.getElementById("run-analysis");
 const ticker = document.getElementById("ticker");
 
@@ -31,28 +39,16 @@ let killOn = true;
 let backendOnline = false;
 
 function setBadge(element, text, className = "") {
+  if (!element) return;
   element.textContent = text;
   element.className = `badge ${className}`.trim();
 }
 
-async function api(path, options = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    const response = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {}),
-      },
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    return await response.json();
-  } finally {
-    clearTimeout(timeout);
+function setTruth(state, detail) {
+  setBadge(truthBadge, state, state === "LIVE" || state === "PASS" || state === "PAPER_LIVE" ? "live" : "fixture");
+  if (truthBanner) {
+    truthBanner.className = `truth-banner ${state}`;
+    truthBanner.textContent = `${state} · ${detail}`;
   }
 }
 
@@ -111,6 +107,7 @@ function applyPortfolio(portfolio) {
 
 function applyFixtureSession(data) {
   setBadge(sourceBadge, "FIXTURE", "fixture");
+  setTruth("FIXTURE", "Backend unavailable. Explicit fixture session; no fills.");
   applyPortfolio({ ...data.portfolio, open_positions: data.positions?.length || 0 });
   document.getElementById("corr").textContent = data.trace[0]?.correlation_id || "fixture";
   renderPipeline(data.pipeline);
@@ -124,6 +121,17 @@ function applyPipeline(result) {
 
   const trace = result.trace || [];
   const byEvent = Object.fromEntries(trace.map((event) => [event.event, event]));
+  const execution = byEvent.execution_result?.status || result.execution?.status || "FAIL";
+  const risk = byEvent.risk_decision?.status || result.risk?.status || "FAIL";
+  const truth =
+    execution === "blocked" || execution === "BLOCKED"
+      ? "BLOCKED"
+      : risk === "NO_TRADE" || execution === "NO_TRADE"
+        ? "NO_TRADE"
+        : source === "FIXTURE"
+          ? "FIXTURE"
+          : "LIVE";
+  setTruth(truth, `correlation ${result.correlation_id || "none"} · analysis only`);
   renderPipeline([
     {
       label: "Market",
@@ -165,12 +173,12 @@ async function loadFixture() {
 }
 
 async function runAnalysis() {
+  if (!api) return;
   runButton.disabled = true;
   runButton.textContent = "RUNNING LOCAL ANALYSIS…";
+  setTruth("LOADING", "POST /api/pipeline?execute=false");
   try {
-    const result = await api(`/api/pipeline/${encodeURIComponent(ticker.value)}?execute=false`, {
-      method: "POST",
-    });
+    const result = await api.runPipeline(ticker.value);
     applyPipeline(result);
   } catch (error) {
     setBadge(backendBadge, "API FAIL", "fixture");
@@ -203,10 +211,7 @@ kill.addEventListener("click", async () => {
     return;
   }
   try {
-    const state = await api("/api/kill-switch", {
-      method: "POST",
-      body: JSON.stringify({ enabled: requested }),
-    });
+    const state = await api.setKillSwitch(requested);
     killOn = Boolean(state.enabled);
     renderKillState();
     await runAnalysis();
@@ -220,11 +225,35 @@ kill.addEventListener("click", async () => {
 runButton.addEventListener("click", runAnalysis);
 
 async function boot() {
+  if (window.applyShellChrome) window.applyShellChrome(moduleEntry);
+  if (!moduleEntry.allowed) {
+    backendOnline = false;
+    setBadge(backendBadge, "BLOCKED", "fixture");
+    setTruth("BLOCKED", "Embedded gateway token missing. Standalone demo still works without require_gateway.");
+    renderKillState();
+    if (runButton) runButton.disabled = true;
+    renderTrace([
+      {
+        ts: new Date().toISOString(),
+        source: "FIXTURE",
+        from: "console",
+        to: "module-gateway",
+        event: "embed_blocked",
+        status: "BLOCKED",
+        correlation_id: "embed-blocked",
+        detail: moduleEntry.reason,
+      },
+    ]);
+    return;
+  }
+
+  setTruth("LOADING", `probing ${API_BASE}/health`);
+  setBadge(backendBadge, "API CHECKING", "freeze");
   try {
     const [health, portfolio, killStateResponse] = await Promise.all([
-      api("/health"),
-      api("/api/portfolio"),
-      api("/api/kill-switch"),
+      api.health(),
+      api.portfolio(),
+      api.getKillSwitch(),
     ]);
     backendOnline = Boolean(health.ok);
     setBadge(backendBadge, backendOnline ? "API LIVE" : "API FAIL", backendOnline ? "live" : "fixture");
@@ -242,6 +271,7 @@ async function boot() {
       await loadFixture();
     } catch {
       setBadge(sourceBadge, "FAIL", "fixture");
+      setTruth("FAIL", "Backend and fixture session are unavailable. Serve apps/console over HTTP.");
       renderTrace([
         {
           ts: new Date().toISOString(),
