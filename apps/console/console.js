@@ -47,9 +47,7 @@ async function api(path, options = {}) {
       },
       signal: controller.signal,
     });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } finally {
     clearTimeout(timeout);
@@ -136,6 +134,11 @@ function applyPipeline(result) {
       detail: byEvent.trade_intent?.detail || "No TradeIntent",
     },
     {
+      label: "Contract",
+      state: byEvent.contract_selection?.status || "FAIL",
+      detail: byEvent.contract_selection?.detail || "No deterministic contract selection",
+    },
+    {
       label: "Risk",
       state: byEvent.risk_decision?.status || "FAIL",
       detail: byEvent.risk_decision?.detail || "No risk decision",
@@ -155,7 +158,7 @@ function renderKillState() {
   kill.classList.toggle("off", !killOn);
   killState.textContent = killOn
     ? "BLOCKED · server execution path closed"
-    : "PAPER path armed · deterministic risk gates still apply";
+    : "PAPER path armed · contract + deterministic risk gates still apply";
 }
 
 async function loadFixture() {

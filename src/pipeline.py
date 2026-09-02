@@ -4,8 +4,10 @@ import os
 import uuid
 
 from .alpaca_adapter import AlpacaPaperAdapter
+from .contracts import DeterministicContractSelector
 from .evidence import EvidenceStore
 from .models import (
+    ContractSelection,
     ExecutionResult,
     PipelineResult,
     RiskDecision,
@@ -23,11 +25,13 @@ class PipelineService:
         adapter: AlpacaPaperAdapter | None = None,
         reasoner: LocalReasoningClient | None = None,
         risk_engine: RiskEngine | None = None,
+        contract_selector: DeterministicContractSelector | None = None,
         evidence_store: EvidenceStore | None = None,
     ) -> None:
         self.adapter = adapter or AlpacaPaperAdapter()
         self.reasoner = reasoner or LocalReasoningClient()
         self.risk_engine = risk_engine or RiskEngine()
+        self.contract_selector = contract_selector or DeterministicContractSelector()
         self.evidence = evidence_store or EvidenceStore()
         self.kill_switch = os.getenv("INNEROS_KILL_SWITCH_DEFAULT", "true").lower() == "true"
         self._traces: dict[str, list[TraceEvent]] = {}
@@ -72,6 +76,36 @@ class PipelineService:
             )
         )
 
+    def _select_contract(self, snapshot, intent: TradeIntent) -> tuple[TradeIntent, ContractSelection]:
+        if intent.bias == "NEUTRAL" or intent.strategy == "no_trade":
+            selection = self.contract_selector.select(snapshot=snapshot, intent=intent, candidates=[])
+            return intent, selection
+
+        option_type = "call" if intent.bias == "BULLISH" else "put"
+        candidates = self.adapter.get_option_candidates(
+            ticker=snapshot.ticker,
+            option_type=option_type,
+            underlying_price=snapshot.price,
+            min_dte=self.contract_selector.policy.min_dte,
+            max_dte=self.contract_selector.policy.max_dte,
+        )
+        selection = self.contract_selector.select(
+            snapshot=snapshot,
+            intent=intent,
+            candidates=candidates,
+        )
+        if selection.status == "SELECTED":
+            return self.contract_selector.apply_to_intent(intent, selection), selection
+
+        no_trade = intent.model_copy(deep=True)
+        no_trade.bias = "NEUTRAL"
+        no_trade.strategy = "no_trade"
+        no_trade.confidence = 0
+        no_trade.option_symbol = None
+        no_trade.estimated_max_loss = 0
+        no_trade.rationale = f"{intent.rationale} | Contract gate: {selection.reason}"
+        return no_trade, selection
+
     def run(self, ticker: str, execute: bool = False) -> PipelineResult:
         correlation_id = str(uuid.uuid4())
         trace: list[TraceEvent] = []
@@ -95,10 +129,34 @@ class PipelineService:
             trace,
             source="LOCAL_QWEN",
             from_agent="strategy-agent",
-            to_agent="risk-engine",
+            to_agent="contract-selector",
             event="trade_intent",
             status=strategy_state,
             detail=f"{intent.strategy} {intent.bias} confidence={intent.confidence:.2f}",
+            correlation_id=correlation_id,
+        )
+
+        intent, selection = self._select_contract(snapshot, intent)
+        contract_state = {
+            "SELECTED": TruthState.PASS,
+            "NO_TRADE": TruthState.NO_TRADE,
+            "BLOCKED": TruthState.BLOCKED,
+        }[selection.status]
+        contract_detail = selection.reason
+        if selection.contract is not None:
+            contract_detail = (
+                f"{selection.contract.symbol} strike={selection.contract.strike_price} "
+                f"expiry={selection.contract.expiration_date.isoformat()} "
+                f"spread={selection.spread_pct:.3f} max_loss={selection.estimated_max_loss:.2f}"
+            )
+        self._append(
+            trace,
+            source="DETERMINISTIC",
+            from_agent="contract-selector",
+            to_agent="risk-engine",
+            event="contract_selection",
+            status=contract_state,
+            detail=contract_detail,
             correlation_id=correlation_id,
         )
 
@@ -160,6 +218,7 @@ class PipelineService:
             correlation_id=correlation_id,
             snapshot=snapshot,
             intent=intent,
+            contract_selection=selection,
             risk=risk,
             execution=execution,
             trace=trace,

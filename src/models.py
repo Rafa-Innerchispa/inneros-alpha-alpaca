@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Literal
 
@@ -44,6 +44,29 @@ class TradeIntent(BaseModel):
     estimated_max_loss: float = Field(ge=0)
     option_symbol: str | None = None
     quantity: int = Field(default=1, ge=1, le=10)
+    correlation_id: str
+
+
+class OptionContractCandidate(BaseModel):
+    symbol: str
+    underlying_symbol: str
+    option_type: Literal["call", "put"]
+    strike_price: float
+    expiration_date: date
+    tradable: bool = True
+    bid_price: float = 0
+    ask_price: float = 0
+    bid_size: int = 0
+    ask_size: int = 0
+    delta: float | None = None
+
+
+class ContractSelection(BaseModel):
+    status: Literal["SELECTED", "NO_TRADE", "BLOCKED"]
+    contract: OptionContractCandidate | None = None
+    reason: str
+    estimated_max_loss: float = 0
+    spread_pct: float | None = None
     correlation_id: str
 
 
@@ -96,6 +119,7 @@ class PipelineResult(BaseModel):
     paper_only: bool = True
     snapshot: MarketSnapshot
     intent: TradeIntent
+    contract_selection: ContractSelection | None = None
     risk: RiskDecision
     execution: ExecutionResult
     trace: list[TraceEvent] = Field(default_factory=list)
