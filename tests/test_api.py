@@ -8,6 +8,15 @@ class FakeReasoner:
     model = "fake-local-qwen"
     base_url = "local://fake"
 
+    def status(self):
+        return {
+            "provider": "local-amd-5",
+            "runtime": "vllm",
+            "model": self.model,
+            "reachable": True,
+            "model_available": True,
+        }
+
     def propose(self, snapshot: MarketSnapshot) -> TradeIntent:
         return TradeIntent(
             ticker=snapshot.ticker,
@@ -32,9 +41,35 @@ def test_health_and_portfolio_are_paper_only():
     health = api.get("/health")
     assert health.status_code == 200
     assert health.json()["paper_only"] is True
+    assert health.json()["reasoning_provider"] == "local-amd-5"
     portfolio = api.get("/api/portfolio")
     assert portfolio.status_code == 200
     assert portfolio.json()["paper"] is True
+
+
+def test_ready_distinguishes_analysis_from_paper_execution():
+    api = client()
+    ready = api.get("/ready")
+    assert ready.status_code == 200
+    data = ready.json()
+    assert data["analysis_ready"] is True
+    assert data["paper_path_ready"] is False
+    assert data["paper_execution_armed"] is False
+    assert data["alpaca"]["credentials_present"] is False
+    assert data["console"]["path"] == "/console/"
+
+
+def test_single_service_serves_console():
+    api = client()
+    redirect = api.get("/", follow_redirects=False)
+    assert redirect.status_code == 307
+    assert redirect.headers["location"] == "/console/"
+    console = api.get("/console/")
+    assert console.status_code == 200
+    assert "Sovereign paper-trading control plane" in console.text
+    js = api.get("/console/console.js")
+    assert js.status_code == 200
+    assert 'window.location.pathname.startsWith("/console")' in js.text
 
 
 def test_server_kill_switch_round_trip():

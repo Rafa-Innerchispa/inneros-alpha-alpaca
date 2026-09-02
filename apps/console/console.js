@@ -17,10 +17,13 @@ const params = new URLSearchParams(window.location.search);
 const moduleEntry = window.resolveModuleEntry
   ? window.resolveModuleEntry(params)
   : { mode: "standalone", embed: false, allowed: true, reason: "ok" };
+const sameOriginApi = window.location.pathname.startsWith("/console")
+  ? window.location.origin
+  : "http://127.0.0.1:8088";
 const API_BASE = (
   params.get("api") ||
   window.INNEROS_ALPHA_API ||
-  "http://127.0.0.1:8088"
+  sameOriginApi
 ).replace(/\/$/, "");
 const api = window.createAlpacaApiClient
   ? window.createAlpacaApiClient({ baseUrl: API_BASE })
