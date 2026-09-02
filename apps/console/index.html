@@ -7,6 +7,12 @@
   <link rel="stylesheet" href="./console.css" />
 </head>
 <body>
+  <nav class="module-nav" aria-label="InnerOS module">
+    <a id="host-back" hidden href="#">← InnerOS host</a>
+    <span class="badge freeze" id="mode-badge">STANDALONE</span>
+    <span class="badge fixture" id="truth-badge">LOADING</span>
+  </nav>
+  <p class="truth-banner" id="truth-banner" role="status">LOADING · probing paper backend</p>
   <header class="top">
     <div>
       <p class="kicker">InnerOS Alpha · Alpaca AI Trading Agents</p>
@@ -53,7 +59,7 @@
 
       <article class="card kill">
         <h2>Server kill switch</h2>
-        <p>Default ON. Risk and execution enforce this on the backend, not only in the browser.</p>
+        <p>Default ON. Contract selection, risk and execution are enforced on the backend.</p>
         <button id="kill" type="button" aria-pressed="true">KILL SWITCH ON</button>
         <p class="status" id="kill-state">BLOCKED · server execution path closed</p>
       </article>
@@ -70,12 +76,14 @@
           <h2>Global Live Trace</h2>
           <code id="corr">no-run-yet</code>
         </div>
-        <p class="hint">LIVE/PAPER_LIVE rows come from connected services. FIXTURE rows are explicitly simulated. One correlation ID follows the full pipeline.</p>
+        <p class="hint">LIVE/PAPER_LIVE rows come from connected services. FIXTURE rows are explicitly simulated. One correlation ID follows Market → Strategy → Contract → Risk → Execution.</p>
         <ol id="trace" class="trace-list"></ol>
       </article>
     </section>
   </main>
 
+  <script src="./module-shell.js"></script>
+  <script src="./api-client.js"></script>
   <script src="./console.js"></script>
 </body>
 </html>

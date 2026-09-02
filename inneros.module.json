@@ -12,7 +12,8 @@
   },
   "routes": {
     "suggested_mount": "/modules/alpha",
-    "api_prefix": "/api"
+    "api_prefix": "/api",
+    "embed_query": ["embed", "host_origin", "module_token", "require_gateway", "back"]
   },
   "permissions": [
     "alpha.view",
@@ -26,7 +27,9 @@
     "deterministic_risk",
     "alpaca_paper_execution",
     "correlated_live_trace",
-    "evidence_persistence"
+    "evidence_persistence",
+    "standalone_console",
+    "inneros_gateway_embed"
   ],
   "agents": [
     {"id": "market-agent", "runtime": "alpaca-data"},
@@ -47,6 +50,8 @@
     "kill_switch_default": true,
     "llm_can_select_contract_symbol": false,
     "llm_can_override_risk": false,
+    "console_never_submits_fills": true,
+    "embed_post_message": "inneros.module.ready",
     "secrets_in_repo": false
   },
   "public_metadata": {
