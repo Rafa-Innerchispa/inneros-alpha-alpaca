@@ -14,6 +14,7 @@ def test_amd_systemd_unit_keeps_qwen_loopback_and_paper_only():
 
 def test_primary_systemd_unit_uses_private_qwen_tunnel_and_managed_python():
     unit = (ROOT / "deploy/inneros-alpha-primary.service").read_text()
+    assert "WorkingDirectory=/home/rlopez/projects/inneros-alpha-alpaca" in unit
     assert "ALPACA_PAPER=true" in unit
     assert "INNEROS_REASONING_URL=http://127.0.0.1:18000/v1" in unit
     assert "%h/inneros/inneros_core/platform/venv/bin/python" in unit
