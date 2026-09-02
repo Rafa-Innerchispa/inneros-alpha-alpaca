@@ -13,13 +13,14 @@ from pydantic import BaseModel
 from .mcp_readiness import alpaca_mcp_readiness
 from .models import ExecutionResult, MarketSnapshot, PipelineResult, RiskDecision, TradeIntent, TruthState
 from .pipeline import PipelineService
+from .submission_readiness import submission_readiness
 
 
 class KillSwitchRequest(BaseModel):
     enabled: bool
 
 
-app = FastAPI(title="InnerOS Alpha", version="0.6.0")
+app = FastAPI(title="InnerOS Alpha", version="0.7.0")
 
 origins = [
     origin.strip()
@@ -92,6 +93,7 @@ def ready() -> dict:
             "error": alpaca_error,
         },
         "alpaca_mcp": mcp.public_dict(),
+        "submission": submission_readiness().public_dict(),
         "console": {"mounted": True, "path": "/console/"},
     }
 
@@ -100,6 +102,12 @@ def ready() -> dict:
 def mcp_status() -> dict:
     """Return the redacted Alpaca MCP safety/readiness contract."""
     return alpaca_mcp_readiness().public_dict()
+
+
+@app.get("/api/submission/status")
+def submission_status() -> dict:
+    """Return truthful code-vs-submission readiness without exposing secrets."""
+    return submission_readiness().public_dict()
 
 
 @app.get("/")
