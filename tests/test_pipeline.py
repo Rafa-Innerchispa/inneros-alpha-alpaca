@@ -83,10 +83,13 @@ def test_server_kill_switch_blocks_risk_and_execution():
     assert any(event.status == TruthState.BLOCKED for event in result.trace)
 
 
-def test_trace_is_retrievable_after_pipeline_run():
+def test_trace_and_evidence_are_retrievable_after_pipeline_run():
     instance = service()
     result = instance.run("SPY", execute=False)
     stored = instance.get_trace(result.correlation_id)
     assert len(stored) == 4
     assert stored[0].event == "market_snapshot"
     assert stored[-1].event == "execution_result"
+    evidence = instance.get_evidence(result.correlation_id)
+    assert evidence["correlation_id"] == result.correlation_id
+    assert evidence["schema_version"] == "inneros.alpha.evidence.v1"

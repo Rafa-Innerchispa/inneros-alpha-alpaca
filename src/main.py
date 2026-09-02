@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import uuid
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ class KillSwitchRequest(BaseModel):
     enabled: bool
 
 
-app = FastAPI(title="InnerOS Alpha", version="0.2.0")
+app = FastAPI(title="InnerOS Alpha", version="0.3.0")
 
 origins = [
     origin.strip()
@@ -48,6 +49,8 @@ def health() -> dict:
         "kill_switch": pipeline.kill_switch,
         "reasoning_model": pipeline.reasoner.model,
         "reasoning_url": pipeline.reasoner.base_url,
+        "evidence_backend": pipeline.evidence.backend,
+        "evidence_last_error": pipeline.evidence.last_error,
     }
 
 
@@ -58,15 +61,11 @@ def portfolio():
 
 @app.get("/api/market/{ticker}", response_model=MarketSnapshot)
 def market(ticker: str):
-    import uuid
-
     return adapter.get_market_snapshot(ticker=ticker, correlation_id=str(uuid.uuid4()))
 
 
 @app.get("/api/intent/{ticker}", response_model=TradeIntent)
 def intent(ticker: str):
-    import uuid
-
     correlation_id = str(uuid.uuid4())
     snapshot = adapter.get_market_snapshot(ticker=ticker, correlation_id=correlation_id)
     return pipeline.reasoner.propose(snapshot)
@@ -124,3 +123,11 @@ def trace(correlation_id: str) -> dict:
     if not events:
         raise HTTPException(status_code=404, detail="Trace not found")
     return {"correlation_id": correlation_id, "events": events}
+
+
+@app.get("/api/evidence/{correlation_id}")
+def evidence(correlation_id: str) -> dict:
+    document = pipeline.get_evidence(correlation_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+    return document

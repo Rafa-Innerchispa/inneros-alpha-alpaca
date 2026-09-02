@@ -4,6 +4,7 @@ import os
 import uuid
 
 from .alpaca_adapter import AlpacaPaperAdapter
+from .evidence import EvidenceStore
 from .models import (
     ExecutionResult,
     PipelineResult,
@@ -22,10 +23,12 @@ class PipelineService:
         adapter: AlpacaPaperAdapter | None = None,
         reasoner: LocalReasoningClient | None = None,
         risk_engine: RiskEngine | None = None,
+        evidence_store: EvidenceStore | None = None,
     ) -> None:
         self.adapter = adapter or AlpacaPaperAdapter()
         self.reasoner = reasoner or LocalReasoningClient()
         self.risk_engine = risk_engine or RiskEngine()
+        self.evidence = evidence_store or EvidenceStore()
         self.kill_switch = os.getenv("INNEROS_KILL_SWITCH_DEFAULT", "true").lower() == "true"
         self._traces: dict[str, list[TraceEvent]] = {}
 
@@ -34,7 +37,16 @@ class PipelineService:
         return self.kill_switch
 
     def get_trace(self, correlation_id: str) -> list[TraceEvent]:
-        return list(self._traces.get(correlation_id, []))
+        cached = self._traces.get(correlation_id)
+        if cached is not None:
+            return list(cached)
+        evidence = self.evidence.get(correlation_id)
+        if not evidence:
+            return []
+        return [TraceEvent.model_validate(event) for event in evidence.get("trace", [])]
+
+    def get_evidence(self, correlation_id: str):
+        return self.evidence.get(correlation_id)
 
     def _append(
         self,
@@ -144,8 +156,7 @@ class PipelineService:
             correlation_id=correlation_id,
         )
 
-        self._traces[correlation_id] = trace
-        return PipelineResult(
+        result = PipelineResult(
             correlation_id=correlation_id,
             snapshot=snapshot,
             intent=intent,
@@ -153,3 +164,6 @@ class PipelineService:
             execution=execution,
             trace=trace,
         )
+        self._traces[correlation_id] = trace
+        self.evidence.persist(result)
+        return result
