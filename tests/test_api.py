@@ -45,7 +45,7 @@ def test_server_kill_switch_round_trip():
     assert changed.json()["enabled"] is False
 
 
-def test_pipeline_contract_has_one_correlation_id():
+def test_pipeline_contract_has_one_correlation_id_and_fails_closed_without_contracts():
     api = client()
     api.post("/api/kill-switch", json={"enabled": False})
     response = api.post("/api/pipeline/SPY?execute=false")
@@ -54,8 +54,11 @@ def test_pipeline_contract_has_one_correlation_id():
     corr = data["correlation_id"]
     assert data["snapshot"]["correlation_id"] == corr
     assert data["intent"]["correlation_id"] == corr
+    assert data["contract_selection"]["correlation_id"] == corr
     assert data["risk"]["correlation_id"] == corr
     assert data["execution"]["correlation_id"] == corr
     assert all(event["correlation_id"] == corr for event in data["trace"])
-    assert data["risk"]["status"] == "PASS"
+    assert data["contract_selection"]["status"] == "NO_TRADE"
+    assert data["risk"]["status"] == "NO_TRADE"
     assert data["execution"]["status"] == "blocked"
+    assert len(data["trace"]) == 5

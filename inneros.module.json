@@ -22,6 +22,7 @@
   "capabilities": [
     "market_snapshot",
     "local_strategy_reasoning",
+    "deterministic_contract_selection",
     "deterministic_risk",
     "alpaca_paper_execution",
     "correlated_live_trace",
@@ -30,6 +31,7 @@
   "agents": [
     {"id": "market-agent", "runtime": "alpaca-data"},
     {"id": "strategy-agent", "runtime": "local-amd-5", "model": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ"},
+    {"id": "contract-selector", "runtime": "deterministic-python"},
     {"id": "risk-engine", "runtime": "deterministic-python"},
     {"id": "execution-agent", "runtime": "alpaca-paper"}
   ],
@@ -43,6 +45,8 @@
     "paper_only": true,
     "real_money_allowed": false,
     "kill_switch_default": true,
+    "llm_can_select_contract_symbol": false,
+    "llm_can_override_risk": false,
     "secrets_in_repo": false
   },
   "public_metadata": {

@@ -12,6 +12,7 @@
   "pipeline": [
     { "id": "market", "label": "Market", "state": "FIXTURE", "detail": "Fallback snapshot because the backend is unavailable." },
     { "id": "strategy", "label": "Strategy", "state": "NO_TRADE", "detail": "No local Qwen evidence in fallback mode." },
+    { "id": "contract", "label": "Contract", "state": "NO_TRADE", "detail": "No Alpaca option-chain evidence. No contract symbol is invented." },
     { "id": "risk", "label": "Risk", "state": "BLOCKED", "detail": "Fail-closed because live backend evidence is unavailable." },
     { "id": "execution", "label": "Execution", "state": "NO_TRADE", "detail": "No broker request and no simulated fill." }
   ],
@@ -24,7 +25,7 @@
       "event": "fixture_fallback",
       "status": "BLOCKED",
       "correlation_id": "alpaca-fixture-fallback",
-      "detail": "Console is in explicit fallback mode. No market, model, risk, or broker action is claimed live."
+      "detail": "Console is in explicit fallback mode. No market, model, contract, risk, or broker action is claimed live."
     }
   ]
 }
