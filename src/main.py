@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
+import secrets
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -20,7 +21,7 @@ class KillSwitchRequest(BaseModel):
     enabled: bool
 
 
-app = FastAPI(title="InnerOS Alpha", version="0.7.0")
+app = FastAPI(title="InnerOS Alpha", version="0.8.0")
 
 origins = [
     origin.strip()
@@ -35,12 +36,28 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-InnerOS-Admin-Token"],
 )
 
 pipeline = PipelineService()
 adapter = pipeline.adapter
 risk_engine = pipeline.risk_engine
+
+
+def _admin_write_gate_configured() -> bool:
+    return bool((os.getenv("INNEROS_ADMIN_TOKEN") or "").strip())
+
+
+def _require_admin_token(provided: str | None) -> None:
+    expected = (os.getenv("INNEROS_ADMIN_TOKEN") or "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="Admin write gate is not configured; mutable broker controls are disabled",
+        )
+    candidate = (provided or "").strip()
+    if not candidate or not secrets.compare_digest(candidate, expected):
+        raise HTTPException(status_code=403, detail="Admin token required")
 
 
 @app.get("/health")
@@ -53,6 +70,7 @@ def health() -> dict:
         "paper_only": True,
         "alpaca_configured": adapter.configured,
         "kill_switch": pipeline.kill_switch,
+        "admin_write_gate_configured": _admin_write_gate_configured(),
         "reasoning_provider": "local-amd-5",
         "reasoning_model": pipeline.reasoner.model,
         "evidence_backend": pipeline.evidence.backend,
@@ -78,14 +96,16 @@ def ready() -> dict:
 
     paper_path_ready = bool(analysis_ready and alpaca_reachable)
     hackathon_ready = bool(paper_path_ready and mcp.ready)
+    admin_gate = _admin_write_gate_configured()
     return {
         "ok": analysis_ready,
         "paper_only": True,
         "analysis_ready": analysis_ready,
         "paper_path_ready": paper_path_ready,
         "hackathon_ready": hackathon_ready,
-        "paper_execution_armed": bool(paper_path_ready and not pipeline.kill_switch),
+        "paper_execution_armed": bool(paper_path_ready and not pipeline.kill_switch and admin_gate),
         "kill_switch": pipeline.kill_switch,
+        "admin_write_gate_configured": admin_gate,
         "reasoning": reasoning,
         "alpaca": {
             "credentials_present": adapter.configured,
@@ -152,7 +172,12 @@ def evaluate_risk(
 
 
 @app.post("/api/execute", response_model=ExecutionResult)
-def execute(intent: TradeIntent, risk: RiskDecision):
+def execute(
+    intent: TradeIntent,
+    risk: RiskDecision,
+    x_inneros_admin_token: str | None = Header(default=None, alias="X-InnerOS-Admin-Token"),
+):
+    _require_admin_token(x_inneros_admin_token)
     if pipeline.kill_switch:
         return ExecutionResult(
             status="blocked",
@@ -163,7 +188,13 @@ def execute(intent: TradeIntent, risk: RiskDecision):
 
 
 @app.post("/api/pipeline/{ticker}", response_model=PipelineResult)
-def run_pipeline(ticker: str, execute: bool = False):
+def run_pipeline(
+    ticker: str,
+    execute: bool = False,
+    x_inneros_admin_token: str | None = Header(default=None, alias="X-InnerOS-Admin-Token"),
+):
+    if execute:
+        _require_admin_token(x_inneros_admin_token)
     return pipeline.run(ticker=ticker, execute=execute)
 
 
@@ -173,7 +204,11 @@ def get_kill_switch() -> dict:
 
 
 @app.post("/api/kill-switch")
-def set_kill_switch(request: KillSwitchRequest) -> dict:
+def set_kill_switch(
+    request: KillSwitchRequest,
+    x_inneros_admin_token: str | None = Header(default=None, alias="X-InnerOS-Admin-Token"),
+) -> dict:
+    _require_admin_token(x_inneros_admin_token)
     enabled = pipeline.set_kill_switch(request.enabled)
     return {"enabled": enabled, "paper_only": True}
 
