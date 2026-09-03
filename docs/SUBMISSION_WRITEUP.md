@@ -52,13 +52,12 @@ The judge console is publicly available at:
 
 `https://alpaca.creatorcore.ai/console/`
 
-Verified runtime evidence now includes:
+Verified runtime evidence includes:
 
 - Alpaca PAPER authentication: HTTP 200;
 - account status: `ACTIVE`;
-- starting cash: USD 100,000;
-- starting equity: USD 100,000;
-- buying power: USD 400,000;
+- verified pre-trade baseline cash/equity: USD 100,000;
+- verified pre-trade buying power: USD 400,000;
 - `trading_blocked=false`;
 - PAPER-only boundary active;
 - local AMD Qwen runtime reachable;
@@ -67,57 +66,68 @@ Verified runtime evidence now includes:
 - deterministic contract selection and risk controls active;
 - server-side kill switch begins ON and is re-armed after controlled execution.
 
-The public service is being reloaded to consume the final private runtime environment. Until that reload is reflected by `/ready`, the public endpoint may still report some broker/MCP readiness fields as pending even though the PAPER credentials and controlled E2E proof have already been validated server-side.
+The public service still requires a final runtime reload before `/ready` can truthfully reflect all private PAPER credential/MCP readiness flags. Until that reload is complete, public readiness may lag the server-side proof.
 
 ## Controlled PAPER proof
 
-The repository includes a fail-closed final proof command:
+The repository includes a fail-closed proof command:
 
 ```bash
 python -m src.controlled_paper_e2e SPY
 ```
 
-Without an explicit confirmation flag this performs preflight only and cannot submit an order. The controlled judge proof uses:
+Without an explicit confirmation flag this performs preflight only and cannot submit an order. The controlled proof path uses:
 
 ```bash
 python -m src.controlled_paper_e2e SPY --confirm-paper-order
 ```
 
-Before permitting that one PAPER pipeline execution, the helper requires:
+Before permitting the first PAPER pipeline execution, the helper requires:
 
 1. Alpaca PAPER credentials to be present;
 2. the Alpaca account probe to return a live PAPER account;
-3. account equity to be USD 100,000 before the first controlled order;
+3. account equity to match the verified USD 100,000 pre-trade baseline;
 4. the local Qwen runtime to be reachable and the configured model available;
 5. the server kill switch to begin ON.
 
-The verified run then disarmed the kill switch only for the controlled call, executed Market -> Strategy -> Contract -> Risk -> Execution -> Evidence with one correlation ID, persisted evidence, captured Alpaca's returned order ID and re-armed the kill switch in `finally`.
+The canonical judge proof disarmed the kill switch only for the bounded PAPER call, executed Market -> Strategy -> Contract -> Risk -> Execution -> Evidence with one correlation ID, persisted evidence, captured Alpaca's returned order ID and re-armed the kill switch in `finally`.
 
-### Verified PAPER E2E evidence
+### Canonical PAPER E2E evidence
 
 - Pre-trade account: **ACTIVE PAPER account, USD 100,000 cash/equity**
 - Local reasoning model: **QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ**
 - Selected option contract: **SPY260930C00779000**
 - Risk decision: **PASS**
 - Execution state: **submitted**
-- Alpaca PAPER order ID: **6e1cc1de-821c-49e1-8605-c8161caf1a05**
-- Pipeline correlation ID: **8006ee08-104a-4bcc-91c7-1013ae4b1a41**
+- Canonical Alpaca PAPER order ID: **6e1cc1de-821c-49e1-8605-c8161caf1a05**
+- Canonical pipeline correlation ID: **8006ee08-104a-4bcc-91c7-1013ae4b1a41**
 - Correlation consistency: **verified**
 - Evidence persistence: **verified**
 - Kill switch after run: **ON / re-armed**
 - Live-money trading: **never used**
 
+### Multi-agent concurrency incident and freeze
+
+During final orchestration, a second agent session entered the same already-completed PAPER E2E task after the original repository lock expired. Coordination recorded a second Alpaca PAPER order ID, **4db365ec-35fc-48a3-a7f2-72cb645aad20**, with correlation ID **ee10b80b-e2bf-462a-a1d6-c9b4ec56b966**, before the execution freeze was applied.
+
+This second submission is **not** used as the canonical judge proof. No attempt is made to hide, reset or rewrite the account state. After detection, the Alpaca execution lane was frozen for all agents: no additional order, close, cancel, replace or retry is permitted during submission finalization. Remaining work is read-only/runtime/submission reconciliation only.
+
+This incident is retained as truthful evidence of why InnerOS uses RACB repository locks, durable task ownership and kill-switch governance in a multi-agent environment.
+
 ## Evidence and demo
 
-The console exposes truthful states such as `PAPER_LIVE`, `FIXTURE`, `NO_TRADE`, `BLOCKED` and `FAIL`. It never fabricates fills or P&L. The final demo shows the architecture, local AI strategy intent, contract selection, risk gates, the controlled PAPER execution, Alpaca's returned order ID and the matching evidence trace.
+The console exposes truthful states such as `PAPER_LIVE`, `FIXTURE`, `NO_TRADE`, `BLOCKED` and `FAIL`. It never fabricates fills or P&L. The final demo should show the architecture, local AI strategy intent, contract selection, risk gates, the canonical PAPER execution, Alpaca's returned order ID and the matching evidence trace.
 
 ### Final submission status
 
 - Competition account initial USD 100,000 verification: **VERIFIED**
-- Controlled PAPER order ID: **VERIFIED**
+- Alpaca PAPER credentials: **VERIFIED / server-side only**
+- Canonical controlled PAPER E2E: **VERIFIED**
 - Deterministic risk decision: **VERIFIED PASS**
 - Evidence trace and kill-switch re-arm: **VERIFIED**
+- Concurrency incident: **DETECTED, DOCUMENTED, EXECUTION FROZEN**
 - Final strategy P&L: **not claimed unless returned by Alpaca/competition results**
 - Public service final readiness reload: **IN PROGRESS**
+- Official Alpaca MCP live read-only runtime proof: **PENDING FINAL SERVICE RELOAD/VERIFY**
 - Demo video: **PENDING FINAL RECORDING**
 - Pitch deck: **PENDING FINAL EXPORT / UPLOAD**
