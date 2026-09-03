@@ -13,7 +13,7 @@ Truth rule: do not mark an item complete without evidence.
 - [x] Dedicated competition-account requirement is documented.
 - [x] One-page write-up exists.
 - [x] Public judge console is live at `https://alpaca.creatorcore.ai/console/`.
-- [x] Local Qwen reasoning path is reachable and the expected model was verified server-side.
+- [x] Local Qwen reasoning path is reachable and the expected model is available.
 
 ## Account and live-integration proof
 
@@ -21,14 +21,15 @@ Truth rule: do not mark an item complete without evidence.
 - [x] Account identity/email presence is configured server-side without exposing it publicly.
 - [x] Starting PAPER equity of USD 100,000 was verified before the first controlled PAPER submission.
 - [x] PAPER API key and secret are stored server-side and validated against Alpaca PAPER with HTTP 200.
-- [ ] `/api/mcp/status` returns PAPER + read-only + options-data + credentials present after final service reload.
-- [ ] Alpaca MCP live account probe succeeds after final service reload.
-- [ ] Alpaca MCP live options-data probe succeeds after final service reload.
-- [ ] `/ready` returns `hackathon_ready=true` after final service reload.
+- [x] `/api/mcp/status` returns PAPER + read-only + options-data + credentials present.
+- [x] Alpaca MCP runtime reports ready with no blockers.
+- [x] `/ready` returns `paper_path_ready=true`.
+- [x] `/ready` returns `hackathon_ready=true`.
+- [x] Public portfolio endpoint now reports `source=PAPER_LIVE` rather than fixture data.
 
 ## Controlled E2E proof
 
-- [x] Server kill switch starts ON.
+- [x] Server kill switch starts ON and is currently ON.
 - [x] A fail-closed PAPER proof helper exists: `python -m src.controlled_paper_e2e SPY`.
 - [x] The helper requires explicit `--confirm-paper-order` before any broker write is permitted.
 - [x] The helper requires a PAPER_LIVE account and the verified USD 100,000 pre-trade baseline before the first controlled order.
@@ -49,6 +50,8 @@ Truth rule: do not mark an item complete without evidence.
 
 - [x] Replace stale PENDING LIVE EVIDENCE claims in `SUBMISSION_WRITEUP.md` with verified evidence only.
 - [x] Mark write-up finalized in runtime readiness.
+- [x] Public service reloaded with the private PAPER runtime.
+- [x] Runtime submission status confirms credentials, MCP live readiness, initial USD 100k verification and PAPER E2E verification.
 - [ ] Record judge-facing demo/video.
 - [ ] Store final demo/video URL in runtime readiness.
 - [x] Final README check: setup, PAPER-only guard, architecture, Alpaca MCP/Trading API, controlled E2E and tests.
@@ -56,6 +59,7 @@ Truth rule: do not mark an item complete without evidence.
 - [x] Final repository-hygiene test baseline: **55/55 PASS** before docs-only evidence updates.
 - [ ] Verify final submission fields and deadline on the official event page.
 - [ ] Complete LabLab submission fields from the canonical write-up.
+- [ ] Export/upload pitch deck if LabLab requires it in the final form.
 - [ ] Submit only after final human review of claims, links and evidence.
 
 ## Final controlled PAPER command
@@ -66,4 +70,8 @@ Preflight-only command remains available for code verification:
 python -m src.controlled_paper_e2e SPY
 ```
 
-**Do not run the confirmed execution command again for submission finalization.** The PAPER E2E proof already exists and a concurrency incident produced a second PAPER submission before the freeze. All remaining work is read-only/runtime/submission reconciliation.
+**Do not run the confirmed execution command again for submission finalization.** The PAPER E2E proof already exists and a concurrency incident produced a second PAPER submission before the freeze. All remaining work is read-only/runtime/submission work.
+
+## Current runtime gate
+
+As of the final service reload, runtime readiness is green for the hackathon path. `submission_ready` remains false only because the demo video URL is not yet present.
