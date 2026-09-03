@@ -62,11 +62,14 @@ Verified runtime evidence includes:
 - PAPER-only boundary active;
 - local AMD Qwen runtime reachable;
 - expected Qwen3-Coder model available;
-- official Alpaca MCP configured with explicit read-only toolsets;
+- official Alpaca MCP configured and live with explicit read-only toolsets;
 - deterministic contract selection and risk controls active;
-- server-side kill switch begins ON and is re-armed after controlled execution.
+- server-side kill switch begins ON and is currently re-armed;
+- public `/ready` now reports `paper_path_ready=true` and `hackathon_ready=true`;
+- public `/api/mcp/status` reports MCP `ready=true` with no blockers;
+- public portfolio data now reports `source=PAPER_LIVE` rather than fixture data.
 
-The public service still requires a final runtime reload before `/ready` can truthfully reflect all private PAPER credential/MCP readiness flags. Until that reload is complete, public readiness may lag the server-side proof.
+After the audited service reload, the public runtime truthfully reflects the private PAPER credentials and MCP readiness state.
 
 ## Controlled PAPER proof
 
@@ -110,7 +113,9 @@ The canonical judge proof disarmed the kill switch only for the bounded PAPER ca
 
 During final orchestration, a second agent session entered the same already-completed PAPER E2E task after the original repository lock expired. Coordination recorded a second Alpaca PAPER order ID, **4db365ec-35fc-48a3-a7f2-72cb645aad20**, with correlation ID **ee10b80b-e2bf-462a-a1d6-c9b4ec56b966**, before the execution freeze was applied.
 
-This second submission is **not** used as the canonical judge proof. No attempt is made to hide, reset or rewrite the account state. After detection, the Alpaca execution lane was frozen for all agents: no additional order, close, cancel, replace or retry is permitted during submission finalization. Remaining work is read-only/runtime/submission reconciliation only.
+The public PAPER portfolio subsequently confirmed **two open positions**, which is consistent with two submitted PAPER executions. This second submission is **not** used as the canonical judge proof. No attempt is made to hide, reset or rewrite the account state.
+
+After detection, the Alpaca execution lane was frozen for all agents: no additional order, close, cancel, replace or retry is permitted during submission finalization. Remaining work is read-only/runtime/submission only.
 
 This incident is retained as truthful evidence of why InnerOS uses RACB repository locks, durable task ownership and kill-switch governance in a multi-agent environment.
 
@@ -122,12 +127,14 @@ The console exposes truthful states such as `PAPER_LIVE`, `FIXTURE`, `NO_TRADE`,
 
 - Competition account initial USD 100,000 verification: **VERIFIED**
 - Alpaca PAPER credentials: **VERIFIED / server-side only**
+- Public PAPER API connectivity: **VERIFIED**
+- Official Alpaca MCP live read-only runtime: **VERIFIED READY**
+- Public `hackathon_ready`: **TRUE**
 - Canonical controlled PAPER E2E: **VERIFIED**
 - Deterministic risk decision: **VERIFIED PASS**
 - Evidence trace and kill-switch re-arm: **VERIFIED**
 - Concurrency incident: **DETECTED, DOCUMENTED, EXECUTION FROZEN**
 - Final strategy P&L: **not claimed unless returned by Alpaca/competition results**
-- Public service final readiness reload: **IN PROGRESS**
-- Official Alpaca MCP live read-only runtime proof: **PENDING FINAL SERVICE RELOAD/VERIFY**
-- Demo video: **PENDING FINAL RECORDING**
-- Pitch deck: **PENDING FINAL EXPORT / UPLOAD**
+- Demo video: **PENDING FINAL RECORDING / URL**
+- Runtime `submission_ready`: **FALSE only because `demo_video_missing`**
+- Pitch deck: **PENDING FINAL EXPORT / UPLOAD if required by LabLab**
