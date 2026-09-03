@@ -16,7 +16,8 @@
   <header class="top">
     <div>
       <p class="kicker">InnerOS Alpha · Alpaca AI Trading Agents</p>
-      <h1>Sovereign paper-trading control plane</h1>
+      <h1>Watch AI decide. Watch policy stay in control.</h1>
+      <p class="hero-copy">Sovereign paper-trading control plane. Live Alpaca market context feeds a local Qwen agent. Deterministic code chooses the option contract, applies risk policy, and keeps broker authority outside the LLM.</p>
     </div>
     <div class="badges">
       <span class="badge paper">PAPER ONLY</span>
@@ -25,6 +26,13 @@
       <span class="badge local">LOCAL-FIRST AI</span>
     </div>
   </header>
+
+  <section class="proof-strip" aria-label="Live proof">
+    <span><strong id="proof-alpaca">ALPACA</strong><small>PAPER LIVE</small></span>
+    <span><strong id="proof-qwen">QWEN</strong><small>LOCAL AMD</small></span>
+    <span><strong id="proof-mcp">MCP</strong><small>READ ONLY</small></span>
+    <span><strong id="proof-kill">KILL SWITCH</strong><small>ON</small></span>
+  </section>
 
   <main class="layout">
     <section class="col">
@@ -40,8 +48,11 @@
 
       <article class="card">
         <div class="card-head">
-          <h2>Agent pipeline</h2>
-          <span class="badge paper">ANALYSIS ONLY</span>
+          <div>
+            <h2>Live decision theater</h2>
+            <p class="hint compact">Fresh market → local AI → option contract → deterministic risk → execution gate.</p>
+          </div>
+          <span class="badge paper" id="experience-mode">LIVE NOW</span>
         </div>
         <div class="controls">
           <label>
@@ -52,9 +63,25 @@
               <option value="NVDA">NVDA</option>
             </select>
           </label>
-          <button id="run-analysis" type="button">RUN LOCAL ANALYSIS</button>
+          <button id="run-analysis" type="button">RUN LIVE MARKET DECISION</button>
         </div>
+        <button id="replay-proof" class="secondary-action" type="button">REPLAY VERIFIED PAPER PROOF</button>
         <ol class="pipeline" id="pipeline"></ol>
+      </article>
+
+      <article class="card proof-card" id="proof-card">
+        <div class="card-head">
+          <h2>Verified broker proof</h2>
+          <span class="badge live">HISTORICAL · VERIFIED</span>
+        </div>
+        <p class="proof-title">A bounded options order crossed the full control plane and reached Alpaca PAPER.</p>
+        <div class="proof-grid">
+          <div><small>Contract</small><code>SPY260930C00779000</code></div>
+          <div><small>Risk</small><strong>PASS</strong></div>
+          <div><small>Order ID</small><code>6e1cc1de-821c-49e1-8605-c8161caf1a05</code></div>
+          <div><small>Correlation</small><code>8006ee08-104a-4bcc-91c7-1013ae4b1a41</code></div>
+        </div>
+        <p class="hint">This card replays sanitized evidence from the verified PAPER run. It never submits a new order and does not claim a fill or P&amp;L that Alpaca did not return.</p>
       </article>
 
       <article class="card kill">
@@ -77,6 +104,7 @@
           <code id="corr">no-run-yet</code>
         </div>
         <p class="hint">LIVE/PAPER_LIVE rows come from connected services. FIXTURE rows are explicitly simulated. One correlation ID follows Market → Strategy → Contract → Risk → Execution.</p>
+        <p class="judge-callout"><strong>The point:</strong> the model can propose. It cannot choose an arbitrary broker symbol, override risk, or bypass the server kill switch.</p>
         <ol id="trace" class="trace-list"></ol>
       </article>
     </section>
