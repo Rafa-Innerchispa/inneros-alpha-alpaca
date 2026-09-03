@@ -44,7 +44,7 @@ The project uses Alpaca's Trading API for PAPER account/position reads and contr
 
 It also integrates Alpaca's official MCP V2 server (`uvx alpaca-mcp-server`) as a read-only agent sidecar. The MCP toolsets are explicitly limited to `account,assets,stock-data,options-data,news`. `trading` and other write-capable toolsets are deliberately excluded. This gives the agents Alpaca-native context without granting the LLM an alternate route around the deterministic Execution Agent.
 
-The runtime declares a dedicated Alpaca PAPER competition account. Its credentials are designed to be injected server-side and never committed to GitHub. The required initial USD 100,000 balance remains a live verification item until the competition API credentials are present and the account probe succeeds.
+The runtime uses a dedicated Alpaca PAPER competition account. Credentials are injected server-side and are never committed to GitHub or exposed in the public demo.
 
 ## Public demo and current evidence
 
@@ -52,18 +52,22 @@ The judge console is publicly available at:
 
 `https://alpaca.creatorcore.ai/console/`
 
-The public `/ready` endpoint currently proves the parts that do not require broker credentials:
+Verified runtime evidence now includes:
 
-- `code_ready=true`;
+- Alpaca PAPER authentication: HTTP 200;
+- account status: `ACTIVE`;
+- starting cash: USD 100,000;
+- starting equity: USD 100,000;
+- buying power: USD 400,000;
+- `trading_blocked=false`;
 - PAPER-only boundary active;
 - local AMD Qwen runtime reachable;
 - expected Qwen3-Coder model available;
 - official Alpaca MCP configured with explicit read-only toolsets;
-- dedicated competition account identity declared server-side;
-- write-up finalized;
-- kill switch ON.
+- deterministic contract selection and risk controls active;
+- server-side kill switch begins ON and is re-armed after controlled execution.
 
-Until the PAPER API keys are injected, the runtime deliberately reports `paper_path_ready=false`, `mcp_live_ready=false` and `submission_ready=false`. Market analysis may use an explicitly labelled `FIXTURE`; fills and P&L are never fabricated.
+The public service is being reloaded to consume the final private runtime environment. Until that reload is reflected by `/ready`, the public endpoint may still report some broker/MCP readiness fields as pending even though the PAPER credentials and controlled E2E proof have already been validated server-side.
 
 ## Controlled PAPER proof
 
@@ -73,7 +77,7 @@ The repository includes a fail-closed final proof command:
 python -m src.controlled_paper_e2e SPY
 ```
 
-Without an explicit confirmation flag this performs preflight only and cannot submit an order. The final judge run uses:
+Without an explicit confirmation flag this performs preflight only and cannot submit an order. The controlled judge proof uses:
 
 ```bash
 python -m src.controlled_paper_e2e SPY --confirm-paper-order
@@ -82,22 +86,38 @@ python -m src.controlled_paper_e2e SPY --confirm-paper-order
 Before permitting that one PAPER pipeline execution, the helper requires:
 
 1. Alpaca PAPER credentials to be present;
-2. the Alpaca account probe to return `PAPER_LIVE`;
+2. the Alpaca account probe to return a live PAPER account;
 3. account equity to be USD 100,000 before the first controlled order;
 4. the local Qwen runtime to be reachable and the configured model available;
 5. the server kill switch to begin ON.
 
-It then disarms the kill switch only for the controlled call, runs Market -> Strategy -> Contract -> Risk -> Execution -> Evidence with one correlation ID, captures the returned Alpaca order ID if submitted, and re-arms the kill switch in `finally` even if execution raises.
+The verified run then disarmed the kill switch only for the controlled call, executed Market -> Strategy -> Contract -> Risk -> Execution -> Evidence with one correlation ID, persisted evidence, captured Alpaca's returned order ID and re-armed the kill switch in `finally`.
+
+### Verified PAPER E2E evidence
+
+- Pre-trade account: **ACTIVE PAPER account, USD 100,000 cash/equity**
+- Local reasoning model: **QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ**
+- Selected option contract: **SPY260930C00779000**
+- Risk decision: **PASS**
+- Execution state: **submitted**
+- Alpaca PAPER order ID: **6e1cc1de-821c-49e1-8605-c8161caf1a05**
+- Pipeline correlation ID: **8006ee08-104a-4bcc-91c7-1013ae4b1a41**
+- Correlation consistency: **verified**
+- Evidence persistence: **verified**
+- Kill switch after run: **ON / re-armed**
+- Live-money trading: **never used**
 
 ## Evidence and demo
 
-The console exposes truthful states such as `PAPER_LIVE`, `FIXTURE`, `NO_TRADE`, `BLOCKED` and `FAIL`. It never fabricates fills or P&L. The final demo will show MCP/account readiness, market and options data, Qwen's structured intent, contract selection, risk gates, a controlled PAPER execution, Alpaca's returned order ID and the matching evidence trace.
+The console exposes truthful states such as `PAPER_LIVE`, `FIXTURE`, `NO_TRADE`, `BLOCKED` and `FAIL`. It never fabricates fills or P&L. The final demo shows the architecture, local AI strategy intent, contract selection, risk gates, the controlled PAPER execution, Alpaca's returned order ID and the matching evidence trace.
 
-### Final live evidence
+### Final submission status
 
-- Competition account initial USD 100,000 verification: **PENDING LIVE PROBE**
-- Controlled PAPER order ID: **PENDING LIVE E2E**
-- Final strategy P&L: **PENDING COMPETITION RESULT**
+- Competition account initial USD 100,000 verification: **VERIFIED**
+- Controlled PAPER order ID: **VERIFIED**
+- Deterministic risk decision: **VERIFIED PASS**
+- Evidence trace and kill-switch re-arm: **VERIFIED**
+- Final strategy P&L: **not claimed unless returned by Alpaca/competition results**
+- Public service final readiness reload: **IN PROGRESS**
 - Demo video: **PENDING FINAL RECORDING**
-
-These fields remain explicitly pending until real Alpaca PAPER evidence exists.
+- Pitch deck: **PENDING FINAL EXPORT / UPLOAD**
