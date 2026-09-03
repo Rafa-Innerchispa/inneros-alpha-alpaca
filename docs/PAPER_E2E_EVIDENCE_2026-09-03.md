@@ -44,11 +44,20 @@ During final multi-agent orchestration, another agent session entered the alread
 - second Alpaca PAPER order ID: `4db365ec-35fc-48a3-a7f2-72cb645aad20`
 - second correlation ID: `ee10b80b-e2bf-462a-a1d6-c9b4ec56b966`
 
-The second submission is not used as the canonical judge proof. It is retained as truthful coordination evidence rather than hidden or rewritten.
+After the final runtime reload, the public PAPER portfolio endpoint confirmed:
+
+- `source=PAPER_LIVE`
+- equity `100164.94`
+- cash `98961.94`
+- buying power `395847.76`
+- open positions `2`
+- kill switch remained ON through readiness checks
+
+The two open positions are consistent with two submitted PAPER executions. The second submission is not used as the canonical judge proof. It is retained as truthful coordination evidence rather than hidden or rewritten.
 
 ## Post-E2E freeze
 
-After detecting the overlap, the Alpaca execution lane was frozen for submission finalization. The allowed work is now limited to read-only/runtime/submission reconciliation.
+After detecting the overlap, the Alpaca execution lane was frozen for submission finalization. The allowed work is now limited to read-only/runtime/submission operations.
 
 Forbidden during finalization:
 
@@ -60,12 +69,34 @@ Forbidden during finalization:
 - exposing credentials
 - live-money trading
 
-Remaining technical work is to reload the public service with the secure private runtime, prove `/ready` and the official Alpaca MCP read-only sidecar, and finish the LabLab/video/submission package.
+## Final public runtime proof
 
-## Architecture safety statement
+After an audited `systemd --user` service reload, the public runtime reported:
 
-The official Alpaca MCP sidecar remains read-only with toolsets:
+- `/ready`: `ok=true`
+- `paper_only=true`
+- `analysis_ready=true`
+- `paper_path_ready=true`
+- `hackathon_ready=true`
+- `paper_execution_armed=false`
+- `kill_switch=true`
+- local Qwen reachable and expected model available
+- Alpaca credentials present server-side
+- PAPER API reachable
+- official Alpaca MCP `ready=true`
+- MCP blockers: none
+- submission evidence flags for initial USD 100k and PAPER E2E: verified
+
+`/api/mcp/status` reported explicit read-only toolsets:
 
 `account,assets,stock-data,options-data,news`
 
-The `trading` MCP toolset is excluded. Broker writes are only possible through the deterministic Execution Agent / Alpaca Trading API PAPER path behind the risk engine and kill switch.
+The `trading` MCP toolset is excluded.
+
+`/api/submission/status` reported the only remaining runtime submission blocker as:
+
+`demo_video_missing`
+
+## Architecture safety statement
+
+The official Alpaca MCP sidecar remains read-only. Broker writes are only possible through the deterministic Execution Agent / Alpaca Trading API PAPER path behind the risk engine and kill switch. No additional broker write is required for hackathon finalization.
