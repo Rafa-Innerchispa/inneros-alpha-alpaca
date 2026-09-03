@@ -28,6 +28,8 @@
 
     return {
       health() { return request("/health"); },
+      ready() { return request("/ready"); },
+      mcpStatus() { return request("/api/mcp/status"); },
       portfolio() { return request("/api/portfolio"); },
       getKillSwitch() { return request("/api/kill-switch"); },
       setKillSwitch(enabled) {
