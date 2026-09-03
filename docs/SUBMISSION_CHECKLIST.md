@@ -13,59 +13,57 @@ Truth rule: do not mark an item complete without evidence.
 - [x] Dedicated competition-account requirement is documented.
 - [x] One-page write-up exists.
 - [x] Public judge console is live at `https://alpaca.creatorcore.ai/console/`.
-- [x] `/ready` reports `code_ready=true` and local Qwen reachable on the private AMD runtime.
+- [x] Local Qwen reasoning path is reachable and the expected model was verified server-side.
 
 ## Account and live-integration proof
 
 - [x] Dedicated competition account is declared in runtime configuration.
 - [x] Account identity/email presence is configured server-side without exposing it publicly.
-- [ ] Starting PAPER equity of USD 100,000 is verified and evidence captured before trading.
-- [ ] New PAPER API key and secret from the competition account are stored server-side.
-- [ ] `/api/mcp/status` returns PAPER + read-only + options-data + credentials present.
-- [ ] Alpaca MCP live account probe succeeds.
-- [ ] Alpaca MCP live options-data probe succeeds.
-- [ ] `/ready` returns `hackathon_ready=true`.
+- [x] Starting PAPER equity of USD 100,000 was verified before the first controlled PAPER submission.
+- [x] PAPER API key and secret are stored server-side and validated against Alpaca PAPER with HTTP 200.
+- [ ] `/api/mcp/status` returns PAPER + read-only + options-data + credentials present after final service reload.
+- [ ] Alpaca MCP live account probe succeeds after final service reload.
+- [ ] Alpaca MCP live options-data probe succeeds after final service reload.
+- [ ] `/ready` returns `hackathon_ready=true` after final service reload.
 
 ## Controlled E2E proof
 
-- [x] Server kill switch starts ON in the public runtime.
-- [x] A fail-closed one-command PAPER proof helper exists: `python -m src.controlled_paper_e2e SPY`.
+- [x] Server kill switch starts ON.
+- [x] A fail-closed PAPER proof helper exists: `python -m src.controlled_paper_e2e SPY`.
 - [x] The helper requires explicit `--confirm-paper-order` before any broker write is permitted.
-- [x] The helper requires the competition account to report PAPER_LIVE and USD 100,000 equity before the first controlled order.
+- [x] The helper requires a PAPER_LIVE account and the verified USD 100,000 pre-trade baseline before the first controlled order.
 - [x] The helper re-arms the kill switch in `finally`, including exception paths.
-- [ ] Market snapshot is live and fresh with competition credentials.
-- [ ] Qwen returns a structured TradeIntent with the same correlation ID as the controlled PAPER run.
-- [ ] Contract Selector produces a valid options contract or truthfully returns NO_TRADE.
-- [ ] Risk Engine PASS is captured for an approved bounded trade.
-- [ ] Execution Agent submits one PAPER order through the Trading API.
-- [ ] Alpaca order ID is captured in evidence.
-- [ ] The same correlation ID is visible from Market -> Strategy -> Contract -> Risk -> Execution -> Evidence.
-- [ ] Kill switch re-arm is captured in the live E2E report.
+- [x] Market/account data was live for the controlled PAPER proof.
+- [x] Qwen returned a structured TradeIntent in the controlled pipeline.
+- [x] Contract Selector produced a valid options contract.
+- [x] Risk Engine returned PASS for the bounded trade.
+- [x] Execution Agent submitted a PAPER order through the Trading API.
+- [x] Canonical Alpaca order ID was captured in evidence: `6e1cc1de-821c-49e1-8605-c8161caf1a05`.
+- [x] Canonical pipeline correlation ID was captured: `8006ee08-104a-4bcc-91c7-1013ae4b1a41`.
+- [x] Correlation consistency and evidence persistence were verified.
+- [x] Kill switch re-arm was captured after the controlled run.
+- [x] A later overlapping agent execution was detected and documented; a second PAPER order ID exists and is not treated as the canonical proof.
+- [x] Alpaca execution is frozen for submission finalization: no additional order, close, cancel, replace or retry.
 
 ## Submission package
 
-- [ ] Replace all PENDING LIVE EVIDENCE markers in `SUBMISSION_WRITEUP.md` with real evidence only.
+- [x] Replace stale PENDING LIVE EVIDENCE claims in `SUBMISSION_WRITEUP.md` with verified evidence only.
 - [x] Mark write-up finalized in runtime readiness.
 - [ ] Record judge-facing demo/video.
 - [ ] Store final demo/video URL in runtime readiness.
 - [x] Final README check: setup, PAPER-only guard, architecture, Alpaca MCP/Trading API, controlled E2E and tests.
 - [x] Verify repository contains no credentials, competition-account identity or private deployment topology. Guarded by `tests/test_repository_hygiene.py`.
-- [x] Run complete test suite on final branch: **55/55 PASS** after repository-hygiene hardening.
+- [x] Final repository-hygiene test baseline: **55/55 PASS** before docs-only evidence updates.
 - [ ] Verify final submission fields and deadline on the official event page.
-- [ ] Submit only after a final human review of claims, links and evidence.
+- [ ] Complete LabLab submission fields from the canonical write-up.
+- [ ] Submit only after final human review of claims, links and evidence.
 
 ## Final controlled PAPER command
 
-Preflight only, never submits an order:
+Preflight-only command remains available for code verification:
 
 ```bash
 python -m src.controlled_paper_e2e SPY
 ```
 
-Exactly one controlled PAPER pipeline execution, only after credentials and the USD 100,000 account probe are valid:
-
-```bash
-python -m src.controlled_paper_e2e SPY --confirm-paper-order
-```
-
-The command reports the Alpaca order ID, pipeline `correlation_id`, correlation consistency, evidence persistence and kill-switch re-arm state. It does not claim a fill or P&L that Alpaca has not returned.
+**Do not run the confirmed execution command again for submission finalization.** The PAPER E2E proof already exists and a concurrency incident produced a second PAPER submission before the freeze. All remaining work is read-only/runtime/submission reconciliation.
