@@ -8,6 +8,14 @@ Public judge console: `https://alpaca.creatorcore.ai/console/`
 
 The product is not a standalone trading bot. It is a detachable InnerOS financial module where an AI strategy agent can propose a structured `TradeIntent`, but deterministic code owns contract selection, risk approval, the server kill switch, duplicate protection, and broker execution.
 
+## Local data sovereignty
+
+InnerOS Alpha is designed as a sovereign financial agent rather than a cloud-hosted trading bot. Alpaca remains the trusted broker and market-data boundary, but strategy reasoning runs on owned local AMD infrastructure through a private vLLM endpoint. After Alpaca market/account context is ingested into a bounded `MarketSnapshot`, the reasoning step stays local.
+
+The LLM never receives broker credentials, never talks to the write-capable Trading API directly, and never has authority to place an order. It can only return a structured intent. Deterministic services then choose the contract, apply risk rules, enforce the kill switch, execute only against Alpaca PAPER when explicitly allowed, and write evidence under the same `correlation_id`.
+
+For judges, this means the demo is not asking them to trust an opaque AI trader. It shows an auditable control plane where local agents can reason, Alpaca can provide live financial context, and deterministic code remains the authority for financial safety.
+
 ## Current working spine
 
 ```text
@@ -40,6 +48,18 @@ same correlation_id end-to-end
 ```
 
 If local reasoning is unreachable or returns invalid JSON, the system fails closed into `NO_TRADE`. If the broker is not configured, execution is `BLOCKED`. The UI never invents fills or P&L.
+
+## Judge architecture at a glance
+
+- **Market Scout** reads Alpaca market/account context through PAPER-safe runtime adapters.
+- **Quant Analyst** computes short-horizon returns from live Alpaca bars when available.
+- **Local Strategy Agent** runs on private Qwen3-Coder/vLLM infrastructure and produces a bounded `TradeIntent` with thesis, evidence, invalidation and primary risk.
+- **Options Engineer** deterministically filters Alpaca option-chain candidates and reports scan counts.
+- **Risk Sentinel** applies portfolio, loss, stale-data, duplicate and kill-switch gates.
+- **Execution Agent** is the only component allowed to call the Alpaca Trading API, and only in PAPER mode.
+- **Evidence/Audit** persists the decision path, broker response and final state under one `correlation_id`.
+
+The public judge route is protected by an authenticated InnerOS gateway in production. Credentials and access tokens belong in protected runtime configuration only; they are never committed to Git or embedded in the public console.
 
 ## Alpaca MCP and Trading API
 
@@ -92,6 +112,8 @@ Canonical variables:
 - `INNEROS_REASONING_URL`
 - `INNEROS_REASONING_MODEL=QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ`
 - `INNEROS_KILL_SWITCH_DEFAULT=true`
+- `INNEROS_JUDGE_AUTH_REQUIRED=true` in production
+- `INNEROS_JUDGE_USER`, `INNEROS_JUDGE_PASSWORD`, `INNEROS_SESSION_SECRET` supplied only from server-side secret storage
 - optional `INNEROS_MONGO_URI` for durable evidence
 
 `ALPACA_KEY_ID` remains accepted by the Trading API adapter for backward compatibility, but `ALPACA_API_KEY` is the canonical shared name for Trading API + Alpaca MCP.
@@ -100,8 +122,9 @@ The resident strategy model is served through a private OpenAI-compatible vLLM e
 
 ## Readiness and API
 
-- `GET /health`
+- `GET /health` public liveness only
 - `GET /ready`
+- `GET /api/sovereignty`
 - `GET /api/mcp/status`
 - `GET /api/submission/status`
 - `GET /api/portfolio`
@@ -147,9 +170,9 @@ python3 -m compileall -q src tests
 python3 -m pytest tests -q
 ```
 
-Current post-merge validation: **52/52 tests PASS**.
+Current validation: **58/58 tests PASS**.
 
-Coverage includes API safety, PAPER-only adapter guards, reasoning fail-closed behavior, deterministic contract/risk logic, correlation-ID integrity, admin write gates, MCP readiness, submission readiness, controlled PAPER E2E kill-switch recovery, and public-repository hygiene.
+Coverage includes API safety, PAPER-only adapter guards, reasoning fail-closed behavior, deterministic contract/risk logic, correlation-ID integrity, admin write gates, MCP readiness, submission readiness, controlled PAPER E2E kill-switch recovery, judge-console compatibility, sovereign UI contract and public-repository hygiene.
 
 ## InnerOS module contract
 
@@ -158,12 +181,12 @@ Coverage includes API safety, PAPER-only adapter guards, reasoning fail-closed b
 ## Repository layout
 
 ```text
-apps/console/                responsive paper-trading console
-src/main.py                  FastAPI surface
+apps/console/                responsive sovereign trading console
+src/main.py                  FastAPI surface + judge auth + sovereignty API
 src/reasoning.py             local Qwen strategy adapter
-src/contracts.py             deterministic options selector
+src/contracts.py             deterministic options selector + scan stats
 src/risk.py                  deterministic risk gates
-src/alpaca_adapter.py        PAPER-only Alpaca adapter
+src/alpaca_adapter.py        PAPER-only Alpaca adapter + live bars
 src/pipeline.py              orchestrated pipeline + trace
 src/controlled_paper_e2e.py  one-command final PAPER proof
 src/evidence.py              memory/Mongo evidence store

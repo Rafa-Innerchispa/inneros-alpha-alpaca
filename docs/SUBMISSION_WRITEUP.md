@@ -2,25 +2,53 @@
 
 ## What we built
 
-InnerOS Alpha is a PAPER-only multi-agent trading control plane designed for the Alpaca AI Trading Agents Hackathon. The system combines local AI reasoning with deterministic financial controls so an LLM can propose a trade idea without ever receiving authority to bypass risk policy or directly send an order.
+InnerOS Alpha is a PAPER-only multi-agent trading control plane for the Alpaca AI Trading Agents Hackathon. The core idea is simple: **the AI may propose, but policy owns the final authority.**
+
+The system combines local AI reasoning with deterministic financial controls so an LLM can analyze a live opportunity without ever receiving broker credentials or unrestricted order authority.
 
 The end-to-end path is:
 
-**Alpaca market/account context -> Qwen strategy intent -> deterministic option contract selector -> deterministic risk engine -> Execution Agent -> Alpaca Trading API PAPER -> evidence trace.**
+**Alpaca live market/account context -> Market Scout + Quant Analyst -> local Qwen thesis -> deterministic option contract selector -> deterministic risk engine -> execution gate -> evidence trace.**
 
-Every stage carries the same `correlation_id`, making a judge-visible decision trace from market data through the final broker result.
+Every stage carries the same `correlation_id`, producing a judge-visible chain from live market evidence to the final no-write decision.
 
-## AI logic
+## Local data sovereignty
 
-The Strategy Agent uses a local Qwen3-Coder model served on our AMD GPU infrastructure. The model receives a bounded market snapshot and returns a structured `TradeIntent`: underlying, directional bias, confidence, option type and rationale. The model does not choose an arbitrary broker order and cannot override a rejection.
+InnerOS Alpha is designed as a sovereign financial-agent system rather than a cloud-hosted trading bot.
 
-If the local reasoning service is unavailable, malformed or uncertain, the pipeline fails closed into `NO_TRADE` rather than inventing a decision. This local-first architecture keeps reasoning cost controlled and makes the model replaceable without changing the deterministic trading boundary.
+- Alpaca is the external broker and market-data boundary.
+- Strategy reasoning runs on owned AMD infrastructure through private Qwen3-Coder/vLLM.
+- After Alpaca data is ingested into bounded runtime objects, reasoning remains local.
+- The local model receives market evidence, not broker credentials.
+- The official Alpaca MCP server is restricted to read-only toolsets.
+- Deterministic services retain contract, risk and execution authority.
+- Judge credentials and runtime secrets remain server-side and never enter Git.
 
-## Options and contract selection
+This makes InnerOS Alpha useful beyond one trade. It demonstrates how financial agents can preserve data custody and operator control while still connecting to a regulated financial API.
 
-Every executable strategy uses options. After the AI proposes direction, a deterministic Contract Selector evaluates the Alpaca option chain. It filters contracts by option type, expiration window, tradability, quote validity, spread/liquidity and delta when Greeks are available. It selects a bounded contract and calculates maximum premium risk before the Risk Engine evaluates the trade.
+## Sovereign Opportunity Hunt
 
-If no suitable contract exists, the system returns `NO_TRADE`.
+The public judge console turns the pipeline into an observable activity instead of a black-box AI answer.
+
+1. **Market Scout** reads the latest Alpaca trade and current PAPER portfolio.
+2. **Quant Analyst** requests recent Alpaca bars and computes short-horizon returns such as 5m, 15m and 60m when available.
+3. **Local Qwen Strategy Agent** receives that bounded evidence and returns directional bias, confidence, thesis, supporting evidence, invalidation and primary risk.
+4. **Options Engineer** queries real Alpaca option candidates, counts how many contracts were scanned and how many passed DTE, strike, spread, quote and tradability gates.
+5. **Risk Sentinel** compares the selected contract's estimated max loss against real PAPER account equity, open positions, daily P&L and deterministic policy limits.
+6. **Execution Gate** remains blocked in the public demo because the call uses `execute=false` and the server kill switch remains ON.
+7. **Evidence/Audit** records the entire path under one correlation ID.
+
+The judge therefore sees not only what the AI proposed, but what data it used, what contract deterministic code selected, what risk was measured and why execution is or is not allowed.
+
+## Alpaca infrastructure
+
+The project uses Alpaca's Trading API for PAPER account/position reads and controlled PAPER order execution. Non-paper endpoints are rejected by code.
+
+It also integrates Alpaca's official MCP V2 server as a **read-only sidecar** with explicit toolsets:
+
+`account, assets, stock-data, options-data, news`
+
+The `trading` toolset is deliberately excluded. The LLM can inspect Alpaca-native context without gaining an alternate broker-write path.
 
 ## Deterministic risk controls
 
@@ -31,110 +59,49 @@ The LLM cannot bypass the Risk Engine. Current gates include:
 - maximum four open positions;
 - option DTE window: 14-45 days;
 - stale market-data rejection;
-- duplicate-intent/order protection;
-- spread/liquidity checks;
+- duplicate-intent protection;
+- option quote/spread/tradability filters;
 - correlation consistency;
 - server-side kill switch.
 
-A rejected trade never reaches the broker adapter.
+If local reasoning is unavailable or invalid, the system fails closed into `NO_TRADE`.
 
-## Alpaca infrastructure
+## Secure judge access
 
-The project uses Alpaca's Trading API for PAPER account/position reads and controlled PAPER order execution. Non-paper endpoints are rejected by code.
+The production judge console uses username/password authentication with session cookies. Credentials are injected from protected runtime secret storage, not committed to Git or embedded in the browser. `/health` remains a minimal public liveness endpoint while the judge console and API require an authenticated session when production auth is enabled.
 
-It also integrates Alpaca's official MCP V2 server (`uvx alpaca-mcp-server`) as a read-only agent sidecar. The MCP toolsets are explicitly limited to `account,assets,stock-data,options-data,news`. `trading` and other write-capable toolsets are deliberately excluded. This gives the agents Alpaca-native context without granting the LLM an alternate route around the deterministic Execution Agent.
+## Canonical PAPER proof
 
-The runtime uses a dedicated Alpaca PAPER competition account. Credentials are injected server-side and are never committed to GitHub or exposed in the public demo.
+A controlled PAPER end-to-end run was already completed and is preserved as historical evidence. The public demo does not create another order.
 
-## Public demo and current evidence
+- verified initial competition baseline: **USD 100,000 equity/cash**
+- local model: **QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ**
+- selected contract: **SPY260930C00779000**
+- risk decision: **PASS**
+- canonical Alpaca PAPER order ID: **6e1cc1de-821c-49e1-8605-c8161caf1a05**
+- canonical correlation ID: **8006ee08-104a-4bcc-91c7-1013ae4b1a41**
+- evidence persistence: **verified**
+- kill switch after proof: **ON / re-armed**
+- live-money trading: **never used**
 
-The judge console is publicly available at:
+A later overlapping agent session produced a second PAPER submission before the execution lane was frozen. That incident is documented rather than hidden and is not used as the canonical proof. It reinforces the governance problem InnerOS is designed to solve.
+
+## Judge framing
+
+**Problem:** financial AI agents often blur data custody, model authority and broker execution.
+
+**Solution:** InnerOS Alpha keeps reasoning local, Alpaca access bounded, risk deterministic and broker authority outside the LLM.
+
+**Differentiator:** local data sovereignty + read-only Alpaca MCP + deterministic contract/risk authority + auditable correlation trace.
+
+**Proof:** live opportunity analysis uses current Alpaca context with `execute=false`, while a separate historical replay exposes the previously verified PAPER E2E evidence.
+
+**Safety:** PAPER only, kill switch ON, no profitability claim, no fabricated fills or P&L.
+
+## Public demo
 
 `https://alpaca.creatorcore.ai/console/`
 
-Verified runtime evidence includes:
+## Repository
 
-- Alpaca PAPER authentication: HTTP 200;
-- account status: `ACTIVE`;
-- verified pre-trade baseline cash/equity: USD 100,000;
-- verified pre-trade buying power: USD 400,000;
-- `trading_blocked=false`;
-- PAPER-only boundary active;
-- local AMD Qwen runtime reachable;
-- expected Qwen3-Coder model available;
-- official Alpaca MCP configured and live with explicit read-only toolsets;
-- deterministic contract selection and risk controls active;
-- server-side kill switch begins ON and is currently re-armed;
-- public `/ready` now reports `paper_path_ready=true` and `hackathon_ready=true`;
-- public `/api/mcp/status` reports MCP `ready=true` with no blockers;
-- public portfolio data now reports `source=PAPER_LIVE` rather than fixture data.
-
-After the audited service reload, the public runtime truthfully reflects the private PAPER credentials and MCP readiness state.
-
-## Controlled PAPER proof
-
-The repository includes a fail-closed proof command:
-
-```bash
-python -m src.controlled_paper_e2e SPY
-```
-
-Without an explicit confirmation flag this performs preflight only and cannot submit an order. The controlled proof path uses:
-
-```bash
-python -m src.controlled_paper_e2e SPY --confirm-paper-order
-```
-
-Before permitting the first PAPER pipeline execution, the helper requires:
-
-1. Alpaca PAPER credentials to be present;
-2. the Alpaca account probe to return a live PAPER account;
-3. account equity to match the verified USD 100,000 pre-trade baseline;
-4. the local Qwen runtime to be reachable and the configured model available;
-5. the server kill switch to begin ON.
-
-The canonical judge proof disarmed the kill switch only for the bounded PAPER call, executed Market -> Strategy -> Contract -> Risk -> Execution -> Evidence with one correlation ID, persisted evidence, captured Alpaca's returned order ID and re-armed the kill switch in `finally`.
-
-### Canonical PAPER E2E evidence
-
-- Pre-trade account: **ACTIVE PAPER account, USD 100,000 cash/equity**
-- Local reasoning model: **QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ**
-- Selected option contract: **SPY260930C00779000**
-- Risk decision: **PASS**
-- Execution state: **submitted**
-- Canonical Alpaca PAPER order ID: **6e1cc1de-821c-49e1-8605-c8161caf1a05**
-- Canonical pipeline correlation ID: **8006ee08-104a-4bcc-91c7-1013ae4b1a41**
-- Correlation consistency: **verified**
-- Evidence persistence: **verified**
-- Kill switch after run: **ON / re-armed**
-- Live-money trading: **never used**
-
-### Multi-agent concurrency incident and freeze
-
-During final orchestration, a second agent session entered the same already-completed PAPER E2E task after the original repository lock expired. Coordination recorded a second Alpaca PAPER order ID, **4db365ec-35fc-48a3-a7f2-72cb645aad20**, with correlation ID **ee10b80b-e2bf-462a-a1d6-c9b4ec56b966**, before the execution freeze was applied.
-
-The public PAPER portfolio subsequently confirmed **two open positions**, which is consistent with two submitted PAPER executions. This second submission is **not** used as the canonical judge proof. No attempt is made to hide, reset or rewrite the account state.
-
-After detection, the Alpaca execution lane was frozen for all agents: no additional order, close, cancel, replace or retry is permitted during submission finalization. Remaining work is read-only/runtime/submission only.
-
-This incident is retained as truthful evidence of why InnerOS uses RACB repository locks, durable task ownership and kill-switch governance in a multi-agent environment.
-
-## Evidence and demo
-
-The console exposes truthful states such as `PAPER_LIVE`, `FIXTURE`, `NO_TRADE`, `BLOCKED` and `FAIL`. It never fabricates fills or P&L. The final demo should show the architecture, local AI strategy intent, contract selection, risk gates, the canonical PAPER execution, Alpaca's returned order ID and the matching evidence trace.
-
-### Final submission status
-
-- Competition account initial USD 100,000 verification: **VERIFIED**
-- Alpaca PAPER credentials: **VERIFIED / server-side only**
-- Public PAPER API connectivity: **VERIFIED**
-- Official Alpaca MCP live read-only runtime: **VERIFIED READY**
-- Public `hackathon_ready`: **TRUE**
-- Canonical controlled PAPER E2E: **VERIFIED**
-- Deterministic risk decision: **VERIFIED PASS**
-- Evidence trace and kill-switch re-arm: **VERIFIED**
-- Concurrency incident: **DETECTED, DOCUMENTED, EXECUTION FROZEN**
-- Final strategy P&L: **not claimed unless returned by Alpaca/competition results**
-- Demo video: **PENDING FINAL RECORDING / URL**
-- Runtime `submission_ready`: **FALSE only because `demo_video_missing`**
-- Pitch deck: **PENDING FINAL EXPORT / UPLOAD if required by LabLab**
+`https://github.com/Rafa-Innerchispa/inneros-alpha-alpaca`

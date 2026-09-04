@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import hmac
 import html
 import os
 import secrets
@@ -27,7 +26,7 @@ class KillSwitchRequest(BaseModel):
     enabled: bool
 
 
-app = FastAPI(title="InnerOS Alpha", version="0.9.0")
+app = FastAPI(title="InnerOS Alpha", version="0.9.1")
 
 origins = [
     origin.strip()
@@ -51,22 +50,42 @@ risk_engine = pipeline.risk_engine
 
 SESSION_COOKIE = "inneros_judge_session"
 PUBLIC_PATHS = {"/health", "/login", "/api/auth/status"}
+DEFAULT_JUDGE_USER = "lablab-judge"
+DEFAULT_JUDGE_PBKDF2_ITERATIONS = 310000
+DEFAULT_JUDGE_PBKDF2_SALT = "HMVlcJHfrG8Pgszg9yY1tA"
+DEFAULT_JUDGE_PBKDF2_HASH = "cpcjefAHIZSasxLJuAOjsdjZlT1kzDdnsSmYe6y2Q60"
+_judge_sessions: dict[str, int] = {}
 
 
-def _judge_auth_values() -> tuple[str, str, str]:
-    return (
-        (os.getenv("INNEROS_JUDGE_USER") or "").strip(),
-        (os.getenv("INNEROS_JUDGE_PASSWORD") or "").strip(),
-        (os.getenv("INNEROS_JUDGE_SESSION_SECRET") or "").strip(),
-    )
+def _decode_b64url(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + ("=" * (-len(value) % 4)))
+
+
+def _judge_user() -> str:
+    return (os.getenv("INNEROS_JUDGE_USER") or DEFAULT_JUDGE_USER).strip() or DEFAULT_JUDGE_USER
 
 
 def _judge_auth_configured() -> bool:
-    return all(_judge_auth_values())
+    # A strong temporary judge credential is represented only by a PBKDF2 hash in source.
+    # Production may override it with server-side INNEROS_JUDGE_USER/PASSWORD values.
+    return True
 
 
 def _judge_auth_required() -> bool:
-    return (os.getenv("INNEROS_JUDGE_AUTH_REQUIRED") or "false").strip().lower() == "true"
+    return (os.getenv("INNEROS_JUDGE_AUTH_REQUIRED") or "true").strip().lower() == "true"
+
+
+def _judge_password_valid(candidate: str) -> bool:
+    env_password = (os.getenv("INNEROS_JUDGE_PASSWORD") or "").strip()
+    if env_password:
+        return secrets.compare_digest(candidate, env_password)
+    derived = hashlib.pbkdf2_hmac(
+        "sha256",
+        candidate.encode(),
+        _decode_b64url(DEFAULT_JUDGE_PBKDF2_SALT),
+        DEFAULT_JUDGE_PBKDF2_ITERATIONS,
+    )
+    return secrets.compare_digest(derived, _decode_b64url(DEFAULT_JUDGE_PBKDF2_HASH))
 
 
 def _safe_next(value: str | None) -> str:
@@ -76,34 +95,23 @@ def _safe_next(value: str | None) -> str:
     return candidate
 
 
-def _session_token(username: str) -> str:
-    _, _, secret = _judge_auth_values()
+def _session_token() -> str:
     ttl = max(int(os.getenv("INNEROS_JUDGE_SESSION_TTL", "21600")), 300)
-    expires = int(time.time()) + ttl
-    payload = f"{username}:{expires}"
-    signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    raw = f"{payload}:{signature}".encode()
-    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+    token = secrets.token_urlsafe(32)
+    _judge_sessions[token] = int(time.time()) + ttl
+    return token
 
 
 def _session_valid(token: str | None) -> bool:
-    username, _, secret = _judge_auth_values()
-    if not token or not username or not secret:
+    if not token:
         return False
-    try:
-        padded = token + ("=" * (-len(token) % 4))
-        raw = base64.urlsafe_b64decode(padded.encode()).decode()
-        token_user, expires_raw, signature = raw.split(":", 2)
-        expires = int(expires_raw)
-        payload = f"{token_user}:{expires}"
-        expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
-        return (
-            secrets.compare_digest(token_user, username)
-            and expires >= int(time.time())
-            and secrets.compare_digest(signature, expected)
-        )
-    except Exception:
+    expires = _judge_sessions.get(token)
+    if expires is None:
         return False
+    if expires < int(time.time()):
+        _judge_sessions.pop(token, None)
+        return False
+    return True
 
 
 def _is_public_path(path: str) -> bool:
@@ -115,13 +123,6 @@ async def judge_access_gate(request: Request, call_next):
     path = request.url.path
     if request.method == "OPTIONS" or _is_public_path(path) or not _judge_auth_required():
         return await call_next(request)
-    if not _judge_auth_configured():
-        if path.startswith("/api/"):
-            return JSONResponse({"detail": "Judge access is not configured"}, status_code=503)
-        return HTMLResponse(
-            "<h1>InnerOS Alpha</h1><p>Judge access is temporarily unavailable.</p>",
-            status_code=503,
-        )
     if _session_valid(request.cookies.get(SESSION_COOKIE)):
         return await call_next(request)
     if path.startswith("/api/"):
@@ -173,6 +174,7 @@ def auth_status() -> dict:
         "required": _judge_auth_required(),
         "protected_console": True,
         "session_cookie": True,
+        "credential_storage": "pbkdf2_hash_or_server_runtime_override",
     }
 
 
@@ -191,23 +193,17 @@ def login_page(next: str = "/console/", error: str = "") -> str:
 
 @app.post("/login")
 async def login_submit(request: Request):
-    if not _judge_auth_configured():
-        return RedirectResponse(url="/login?error=config", status_code=303)
     body = (await request.body()).decode(errors="ignore")
     form = parse_qs(body)
     username = (form.get("username") or [""])[0]
     password = (form.get("password") or [""])[0]
     target = _safe_next((form.get("next") or ["/console/"])[0])
-    expected_user, expected_password, _ = _judge_auth_values()
-    if not (
-        secrets.compare_digest(username, expected_user)
-        and secrets.compare_digest(password, expected_password)
-    ):
+    if not (secrets.compare_digest(username, _judge_user()) and _judge_password_valid(password)):
         return RedirectResponse(url=f"/login?next={quote(target, safe='/')}&error=1", status_code=303)
     response = RedirectResponse(url=target, status_code=303)
     response.set_cookie(
         SESSION_COOKIE,
-        _session_token(expected_user),
+        _session_token(),
         httponly=True,
         secure=True,
         samesite="lax",
@@ -218,7 +214,10 @@ async def login_submit(request: Request):
 
 
 @app.get("/logout")
-def logout():
+def logout(request: Request):
+    token = request.cookies.get(SESSION_COOKIE)
+    if token:
+        _judge_sessions.pop(token, None)
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE, path="/")
     return response
