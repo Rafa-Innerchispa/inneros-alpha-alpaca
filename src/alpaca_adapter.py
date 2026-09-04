@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import math
 import os
+import statistics
 from datetime import date, datetime, timedelta, timezone
 
 import httpx
@@ -82,6 +84,55 @@ class AlpacaPaperAdapter:
             source=TruthState.PAPER_LIVE,
         )
 
+    @staticmethod
+    def _pct_return(closes: list[float], bars_back: int) -> float | None:
+        if len(closes) <= bars_back or closes[-1 - bars_back] <= 0:
+            return None
+        return ((closes[-1] / closes[-1 - bars_back]) - 1.0) * 100.0
+
+    @classmethod
+    def _technical_packet(cls, bars: list[dict]) -> dict:
+        closes = [float(bar.get("c") or 0) for bar in bars if float(bar.get("c") or 0) > 0]
+        highs = [float(bar.get("h") or 0) for bar in bars if float(bar.get("h") or 0) > 0]
+        lows = [float(bar.get("l") or 0) for bar in bars if float(bar.get("l") or 0) > 0]
+        volumes = [float(bar.get("v") or 0) for bar in bars]
+        if not closes:
+            return {"bars_available": False, "bar_count": 0}
+
+        r5 = cls._pct_return(closes, 5)
+        r15 = cls._pct_return(closes, 15)
+        r60 = cls._pct_return(closes, 60)
+        if r15 is not None and r60 is not None and r15 > 0 and r60 > 0:
+            trend = "BULLISH"
+        elif r15 is not None and r60 is not None and r15 < 0 and r60 < 0:
+            trend = "BEARISH"
+        else:
+            trend = "MIXED"
+
+        log_returns: list[float] = []
+        for previous, current in zip(closes[-61:-1], closes[-60:]):
+            if previous > 0 and current > 0:
+                log_returns.append(math.log(current / previous))
+        minute_vol_pct = statistics.pstdev(log_returns) * 100 if len(log_returns) >= 2 else None
+        range_pct = None
+        if highs and lows and closes[-1] > 0:
+            range_pct = ((max(highs) - min(lows)) / closes[-1]) * 100
+
+        return {
+            "bars_available": True,
+            "bar_count": len(bars),
+            "return_5m_pct": None if r5 is None else round(r5, 4),
+            "return_15m_pct": None if r15 is None else round(r15, 4),
+            "return_60m_pct": None if r60 is None else round(r60, 4),
+            "sample_move_pct": round(((closes[-1] / closes[0]) - 1.0) * 100, 4) if closes[0] > 0 else None,
+            "sample_range_pct": None if range_pct is None else round(range_pct, 4),
+            "minute_return_vol_pct": None if minute_vol_pct is None else round(minute_vol_pct, 4),
+            "volume_last_60_bars": int(sum(volumes[-60:])),
+            "trend": trend,
+            "bar_source": "alpaca_iex_1min",
+            "bar_asof": str(bars[-1].get("t") or ""),
+        }
+
     def get_market_snapshot(self, ticker: str, correlation_id: str) -> MarketSnapshot:
         ticker = ticker.upper().strip()
         if not self.configured:
@@ -94,6 +145,7 @@ class AlpacaPaperAdapter:
                 correlation_id=correlation_id,
             )
 
+        technicals: dict = {"feed": "iex", "source": "alpaca_latest_trade"}
         with httpx.Client(timeout=10.0) as client:
             response = client.get(
                 f"{self.data_url}/v2/stocks/{ticker}/trades/latest",
@@ -102,6 +154,29 @@ class AlpacaPaperAdapter:
             )
             response.raise_for_status()
             trade = response.json()["trade"]
+
+            try:
+                bars_response = client.get(
+                    f"{self.data_url}/v2/stocks/{ticker}/bars",
+                    headers=self._headers(),
+                    params={
+                        "timeframe": "1Min",
+                        "start": (datetime.now(timezone.utc) - timedelta(days=5)).isoformat(),
+                        "limit": 120,
+                        "feed": "iex",
+                        "adjustment": "raw",
+                    },
+                )
+                bars_response.raise_for_status()
+                bars_payload = bars_response.json()
+                technicals.update(self._technical_packet(list(bars_payload.get("bars") or [])))
+            except Exception as exc:
+                technicals.update({
+                    "bars_available": False,
+                    "bars_error": type(exc).__name__,
+                    "note": "Latest trade is live; recent bar features were unavailable and were not fabricated.",
+                })
+
         timestamp = datetime.fromisoformat(str(trade["t"]).replace("Z", "+00:00"))
         freshness = max((datetime.now(timezone.utc) - timestamp).total_seconds(), 0)
         return MarketSnapshot(
@@ -110,7 +185,7 @@ class AlpacaPaperAdapter:
             source=TruthState.LIVE.value,
             price=float(trade["p"]),
             freshness_seconds=freshness,
-            technicals={"feed": "iex", "source": "alpaca_latest_trade"},
+            technicals=technicals,
             correlation_id=correlation_id,
         )
 
@@ -139,11 +214,7 @@ class AlpacaPaperAdapter:
         max_dte: int = 45,
         today: date | None = None,
     ) -> list[OptionContractCandidate]:
-        """Read active contract metadata plus current quotes/Greeks from Alpaca.
-
-        No credentials means no candidates rather than invented fixture contracts. That
-        keeps a demo honest: analysis can run on fixtures, PAPER execution cannot.
-        """
+        """Read active contract metadata plus current quotes/Greeks from Alpaca."""
         if not self.configured:
             return []
         ticker = ticker.upper().strip()

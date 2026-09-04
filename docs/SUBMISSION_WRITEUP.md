@@ -10,11 +10,27 @@ The end-to-end path is:
 
 Every stage carries the same `correlation_id`, making a judge-visible decision trace from market data through the final broker result.
 
+## Why this matters
+
+Most AI trading demos collapse the important boundaries into one black box: the model sees sensitive context, reasons in a remote provider, and is trusted to produce an action. InnerOS Alpha takes the opposite approach. It treats financial AI as a local, auditable control plane where the model can help think, but deterministic systems decide what is safe.
+
+The project demonstrates local data sovereignty for financial agents:
+
+- market/account context comes from Alpaca, but strategy reasoning runs on owned AMD infrastructure;
+- the local Qwen3-Coder/vLLM model receives bounded snapshots, not broker credentials;
+- Alpaca MCP is read-only and excludes broker-trading tools;
+- all write authority is centralized in the PAPER-only Execution Agent;
+- the kill switch, risk gates and evidence trace are deterministic and inspectable.
+
+This makes the demo useful beyond a single trade. It shows how a personal or business AI stack can connect to a regulated financial API without handing an LLM unchecked execution authority.
+
 ## AI logic
 
 The Strategy Agent uses a local Qwen3-Coder model served on our AMD GPU infrastructure. The model receives a bounded market snapshot and returns a structured `TradeIntent`: underlying, directional bias, confidence, option type and rationale. The model does not choose an arbitrary broker order and cannot override a rejection.
 
 If the local reasoning service is unavailable, malformed or uncertain, the pipeline fails closed into `NO_TRADE` rather than inventing a decision. This local-first architecture keeps reasoning cost controlled and makes the model replaceable without changing the deterministic trading boundary.
+
+The intended judge story is a sovereign opportunity hunt: Alpaca supplies live context, a local model explains a bounded thesis, deterministic services select and risk-check the option, and the execution gate remains PAPER-only and kill-switch governed.
 
 ## Options and contract selection
 
@@ -122,6 +138,14 @@ This incident is retained as truthful evidence of why InnerOS uses RACB reposito
 ## Evidence and demo
 
 The console exposes truthful states such as `PAPER_LIVE`, `FIXTURE`, `NO_TRADE`, `BLOCKED` and `FAIL`. It never fabricates fills or P&L. The final demo should show the architecture, local AI strategy intent, contract selection, risk gates, the canonical PAPER execution, Alpaca's returned order ID and the matching evidence trace.
+
+Recommended LabLab framing:
+
+- **Problem:** cloud AI trading agents can blur data custody, model authority and broker execution.
+- **Solution:** a sovereign InnerOS module where reasoning is local, Alpaca access is bounded, and execution is deterministic.
+- **Differentiator:** Alpaca MCP gives native context without granting write authority; the LLM never receives broker credentials.
+- **Proof:** a canonical PAPER order and full `correlation_id` trace are preserved, while an overlapping-agent incident is documented as governance evidence.
+- **Safety:** PAPER only, kill switch ON after proof, no profitability claim, no fabricated fill or P&L.
 
 ### Final submission status
 

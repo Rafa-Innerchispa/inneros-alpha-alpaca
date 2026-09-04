@@ -25,7 +25,6 @@ class LocalReasoningClient:
         self.timeout_seconds = float(os.getenv("INNEROS_REASONING_TIMEOUT", "25"))
 
     def status(self) -> dict:
-        """Return redacted readiness for the local reasoning runtime."""
         status = {
             "provider": "local-amd-5",
             "runtime": "vllm",
@@ -52,6 +51,9 @@ class LocalReasoningClient:
             confidence=0,
             strategy="no_trade",
             rationale=reason,
+            evidence=[],
+            invalidation="Insufficient validated evidence",
+            main_risk="Model or data unavailable",
             estimated_max_loss=0,
             correlation_id=snapshot.correlation_id,
         )
@@ -72,31 +74,36 @@ class LocalReasoningClient:
 
     def propose(self, snapshot: MarketSnapshot) -> TradeIntent:
         system = (
-            "You are the local Strategy Agent inside InnerOS Alpha. "
-            "You may propose only a PAPER-trading TradeIntent. You cannot approve risk or execute. "
-            "Return exactly one JSON object and no commentary. If evidence is insufficient, return "
-            "bias=NEUTRAL, strategy=no_trade, confidence=0, estimated_max_loss=0. "
-            "Never invent an option_symbol. Contract selection is deterministic code outside the LLM."
+            "You are the LOCAL Strategy Agent inside InnerOS Alpha, running on owner-controlled AMD infrastructure. "
+            "You may propose only a PAPER-trading TradeIntent. You cannot approve risk, select an arbitrary broker contract, "
+            "see broker credentials, or execute an order. Use only evidence present in the supplied snapshot. "
+            "Pay special attention to deterministic technicals such as short-horizon returns, trend, range, volume and data freshness. "
+            "If the evidence is mixed, stale, unavailable or insufficient, return bias=NEUTRAL, strategy=no_trade and confidence=0. "
+            "Return exactly one JSON object and no commentary. Never invent an option_symbol."
         )
         schema = {
             "ticker": snapshot.ticker,
             "bias": "BULLISH|BEARISH|NEUTRAL",
             "confidence": "0..1",
-            "strategy": "long_call|long_put|defined_risk_spread|no_trade",
+            "strategy": "long_call|long_put|no_trade",
             "expiry": None,
-            "dte_target": None,
-            "delta_target": None,
-            "rationale": "short evidence-based reason",
+            "dte_target": 30,
+            "delta_target": 0.35,
+            "rationale": "concise evidence-based thesis",
+            "evidence": ["fact 1 from snapshot", "fact 2 from snapshot"],
+            "invalidation": "specific condition that would weaken the thesis",
+            "main_risk": "main uncertainty or market risk",
             "estimated_max_loss": 0,
             "option_symbol": None,
             "quantity": 1,
             "correlation_id": snapshot.correlation_id,
         }
         user = (
-            "Produce a TradeIntent from this market snapshot. Hard limits: initial DTE 14-45 days; "
-            "risk approval and contract selection are external and deterministic; do not bypass them.\n"
+            "Produce a TradeIntent from this real-time market evidence packet. Hard limits: DTE 14-45 days; "
+            "contract selection, portfolio risk approval and execution authority are deterministic code outside the LLM. "
+            "Do not infer facts that are not in the snapshot.\n"
             f"Expected JSON shape: {json.dumps(schema)}\n"
-            f"Snapshot: {snapshot.model_dump_json()}"
+            f"Evidence packet: {snapshot.model_dump_json()}"
         )
         payload = {
             "model": self.model,
@@ -116,6 +123,12 @@ class LocalReasoningClient:
             raw["ticker"] = snapshot.ticker
             raw["correlation_id"] = snapshot.correlation_id
             raw["option_symbol"] = None
+            raw["estimated_max_loss"] = 0
+            raw["quantity"] = 1
+            if raw.get("strategy") not in {"long_call", "long_put", "no_trade"}:
+                raw["strategy"] = "no_trade"
+                raw["bias"] = "NEUTRAL"
+                raw["confidence"] = 0
             return TradeIntent.model_validate(raw)
-        except Exception as exc:  # fail closed into NO_TRADE
+        except Exception as exc:
             return self._no_trade(snapshot, f"Local reasoning unavailable or invalid: {type(exc).__name__}")

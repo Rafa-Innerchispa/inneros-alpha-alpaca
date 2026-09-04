@@ -3,7 +3,7 @@
     const opts = options || {};
     const baseUrl = String(opts.baseUrl || "").replace(/\/$/, "");
     const fetchImpl = opts.fetchImpl || (typeof fetch === "function" ? fetch.bind(root) : null);
-    const timeoutMs = opts.timeoutMs || 8000;
+    const timeoutMs = opts.timeoutMs || 15000;
 
     async function request(path, init) {
       if (!baseUrl) throw new Error("no_api_base");
@@ -13,12 +13,17 @@
       try {
         const response = await fetchImpl(`${baseUrl}${path}`, {
           ...(init || {}),
+          credentials: "same-origin",
           headers: {
             "Content-Type": "application/json",
             ...((init && init.headers) || {}),
           },
           signal: controller.signal,
         });
+        if (response.status === 401) {
+          root.location.href = "/login?next=/console/";
+          throw new Error("authentication_required");
+        }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return await response.json();
       } finally {
@@ -29,6 +34,7 @@
     return {
       health() { return request("/health"); },
       ready() { return request("/ready"); },
+      sovereignty() { return request("/api/sovereignty"); },
       mcpStatus() { return request("/api/mcp/status"); },
       portfolio() { return request("/api/portfolio"); },
       getKillSwitch() { return request("/api/kill-switch"); },
