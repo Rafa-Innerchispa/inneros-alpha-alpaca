@@ -36,6 +36,7 @@ const runButton = document.getElementById("run-analysis");
 const replayButton = document.getElementById("replay-proof");
 const experienceMode = document.getElementById("experience-mode");
 const ticker = document.getElementById("ticker");
+const analysisProgress = document.getElementById("analysis-progress");
 
 let killOn = true;
 let backendOnline = false;
@@ -173,7 +174,7 @@ function renderLiveAnalysis(result) {
     <p>${metric("Scanned", selection.candidates_scanned ?? 0)}${metric("Eligible", selection.candidates_eligible ?? 0)}</p>
     <p>${filterText}</p>${contractText}`;
 
-  const proposedLoss = Number(intent.estimated_max_loss || 0);
+  const proposedLoss = Number(selection.estimated_max_loss || intent.estimated_max_loss || 0);
   document.getElementById("portfolio-risk").innerHTML = `
     <p>${metric("Equity", money(portfolio.equity))}${metric("Positions", portfolio.open_positions ?? "n/a")}</p>
     <p>${metric("Allowed max loss", money(risk.max_loss))}${metric("Proposed max loss", money(proposedLoss))}</p>
@@ -262,7 +263,7 @@ function replayVerifiedProof() {
 }
 
 function renderKillState() {
-  kill.textContent = killOn ? "KILL SWITCH ON" : "KILL SWITCH OFF";
+  kill.textContent = killOn ? "KILL SWITCH LOCKED ON" : "KILL SWITCH OFF";
   kill.setAttribute("aria-pressed", String(killOn));
   kill.classList.toggle("off", !killOn);
   killState.textContent = killOn
@@ -279,18 +280,44 @@ async function loadFixture() {
 async function runAnalysis() {
   if (!api) return;
   if (experienceMode) experienceMode.textContent = "LIVE NOW";
+  const startedAt = Date.now();
   runButton.disabled = true;
   runButton.textContent = "SCANNING ALPACA + ASKING LOCAL QWEN…";
   setTruth("LOADING", "real Alpaca evidence → local Qwen → deterministic option and risk gates");
+  renderPipeline([
+    { label: "Market Scout", state: "RUNNING", detail: "Requesting current Alpaca market evidence…" },
+    { label: "Local Qwen", state: "PENDING", detail: "Waiting for validated market packet" },
+    { label: "Options Engineer", state: "PENDING", detail: "Waiting to scan the live option chain" },
+    { label: "Risk Sentinel", state: "PENDING", detail: "Waiting for proposed contract" },
+    { label: "Execution Gate", state: "PENDING", detail: "Public demo remains execute=false" },
+  ]);
+  if (analysisProgress) {
+    analysisProgress.className = "analysis-progress running";
+    analysisProgress.textContent = "LIVE ANALYSIS RUNNING · contacting Alpaca and local Qwen. Typical runtime: 10–20 seconds.";
+  }
+  const progressTimer = window.setInterval(() => {
+    if (!analysisProgress) return;
+    const seconds = ((Date.now() - startedAt) / 1000).toFixed(0);
+    analysisProgress.textContent = `LIVE ANALYSIS RUNNING · ${seconds}s elapsed · waiting for real Alpaca + local Qwen results…`;
+  }, 1000);
   try {
     const result = await api.runPipeline(ticker.value);
     applyPipeline(result);
+    const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+    if (analysisProgress) {
+      analysisProgress.className = "analysis-progress complete";
+      analysisProgress.textContent = `COMPLETE · ${ticker.value} analyzed in ${elapsed}s. Results and final authority decision are shown below.`;
+    }
+    window.setTimeout(() => document.getElementById("analysis-grid")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
   } catch (error) {
     if (String(error.message || "").includes("authentication_required")) return;
-    setBadge(backendBadge, "API FAIL", "fixture");
-    backendOnline = false;
-    await loadFixture();
+    setTruth("FAIL", `Live analysis failed: ${String(error.message || error)}`);
+    if (analysisProgress) {
+      analysisProgress.className = "analysis-progress failed";
+      analysisProgress.textContent = `FAILED · ${String(error.message || error)}. No broker action was attempted.`;
+    }
   } finally {
+    window.clearInterval(progressTimer);
     runButton.disabled = false;
     runButton.textContent = "FIND A LIVE OPTIONS OPPORTUNITY";
   }
@@ -324,7 +351,14 @@ async function boot() {
     applyRuntimeProof(readiness, mcp);
     const portfolioSource = String(portfolio.source || "FIXTURE");
     setBadge(sourceBadge, portfolioSource, portfolioSource === "FIXTURE" ? "fixture" : "live");
-    await runAnalysis();
+    setTruth("LIVE", "Ready for a judge-triggered live analysis · choose a symbol and press FIND A LIVE OPTIONS OPPORTUNITY");
+    renderPipeline([
+      { label: "Market Scout", state: "PENDING", detail: "Choose a symbol and start the live run" },
+      { label: "Local Qwen", state: "PENDING", detail: "Runs after market evidence is collected" },
+      { label: "Options Engineer", state: "PENDING", detail: "Scans contracts after Qwen produces an intent" },
+      { label: "Risk Sentinel", state: "PENDING", detail: "Applies hard portfolio rules" },
+      { label: "Execution Gate", state: "BLOCKED", detail: "Public demo is permanently execute=false" },
+    ]);
   } catch (error) {
     if (String(error.message || "").includes("authentication_required")) return;
     backendOnline = false;

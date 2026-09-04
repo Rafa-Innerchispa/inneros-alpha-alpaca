@@ -78,6 +78,8 @@ class LocalReasoningClient:
             "You may propose only a PAPER-trading TradeIntent. You cannot approve risk, select an arbitrary broker contract, "
             "see broker credentials, or execute an order. Use only evidence present in the supplied snapshot. "
             "Pay special attention to deterministic technicals such as short-horizon returns, trend, range, volume and data freshness. "
+            "IMPORTANT NUMERIC RULE: fields ending in _pct are already expressed in percentage points. For example, 0.153 means +0.153%, NOT 15.3%. "
+            "Never multiply percentage fields by 100 in the rationale or evidence. Copy numeric evidence faithfully and do not claim a volume condition unless it is explicitly present. "
             "If the evidence is mixed, stale, unavailable or insufficient, return bias=NEUTRAL, strategy=no_trade and confidence=0. "
             "Return exactly one JSON object and no commentary. Never invent an option_symbol."
         )

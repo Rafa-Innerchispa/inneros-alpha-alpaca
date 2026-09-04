@@ -29,13 +29,11 @@
     </div>
   </header>
 
-  <section class="proof-strip six" aria-label="Live sovereignty proof">
+  <section class="proof-strip" aria-label="Live sovereignty proof">
     <span><strong id="proof-alpaca">ALPACA</strong><small>MARKET + PAPER</small></span>
     <span><strong id="proof-qwen">QWEN</strong><small>LOCAL AMD</small></span>
     <span><strong id="proof-mcp">MCP</strong><small>READ ONLY</small></span>
     <span><strong id="proof-kill">KILL SWITCH</strong><small>ON</small></span>
-    <span><strong>LLM CREDENTIALS</strong><small>NONE</small></span>
-    <span><strong>AUDIT TRACE</strong><small>ONE CORRELATION ID</small></span>
   </section>
 
   <section class="sovereignty-band">
@@ -46,14 +44,15 @@
     <div class="boundary-card"><small>Authority boundary</small><strong>Execution Gate</strong><span>LLM cannot submit broker orders or bypass deterministic policy.</span></div>
   </section>
 
+  <p class="pipeline-label">AUTOMATED DECISION PIPELINE · SYSTEM ROLES, NOT BUTTONS</p>
   <section class="agent-mesh" aria-label="Local agent roles">
-    <div><b>01</b><strong>Market Scout</strong><small>ALPACA READ ONLY</small></div>
-    <div><b>02</b><strong>Quant Analyst</strong><small>DETERMINISTIC LOCAL</small></div>
-    <div><b>03</b><strong>Local Qwen Strategy</strong><small>LOCAL AMD</small></div>
-    <div><b>04</b><strong>Options Engineer</strong><small>ALPACA + CODE</small></div>
-    <div><b>05</b><strong>Risk Sentinel</strong><small>DETERMINISTIC</small></div>
-    <div><b>06</b><strong>Execution Gate</strong><small>PAPER · BLOCKED IN DEMO</small></div>
-    <div><b>07</b><strong>Evidence Store</strong><small>LOCAL AUDIT</small></div>
+    <div><b>01</b><strong>Market Scout</strong><span>Reads current Alpaca market data.</span><small>ALPACA READ ONLY</small></div>
+    <div><b>02</b><strong>Quant Analyst</strong><span>Calculates returns, trend and data freshness.</span><small>DETERMINISTIC LOCAL</small></div>
+    <div><b>03</b><strong>Local Qwen Strategy</strong><span>Builds a thesis on our owned AMD server.</span><small>LOCAL AMD</small></div>
+    <div><b>04</b><strong>Options Engineer</strong><span>Scans the real option chain and chooses by rules.</span><small>ALPACA + CODE</small></div>
+    <div><b>05</b><strong>Risk Sentinel</strong><span>Checks account risk and hard portfolio limits.</span><small>DETERMINISTIC</small></div>
+    <div><b>06</b><strong>Execution Gate</strong><span>Final authority. Public demo never submits an order.</span><small>EXECUTE=FALSE</small></div>
+    <div><b>07</b><strong>Evidence Store</strong><span>Keeps one auditable trace and correlation ID.</span><small>LOCAL AUDIT</small></div>
   </section>
 
   <main class="layout">
@@ -87,6 +86,7 @@
           </label>
           <button id="run-analysis" type="button">FIND A LIVE OPTIONS OPPORTUNITY</button>
         </div>
+        <div id="analysis-progress" class="analysis-progress">READY · choose SPY, AAPL or NVDA, then run one live analysis. Typical runtime: 10–20 seconds.</div>
         <button id="replay-proof" class="secondary-action" type="button">REPLAY VERIFIED PAPER EXECUTION</button>
         <ol class="pipeline" id="pipeline"></ol>
       </article>
@@ -116,8 +116,8 @@
 
       <article class="card kill">
         <h2>Server Kill Switch</h2>
-        <p>Default ON. Public judges can inspect the gate but cannot disable it.</p>
-        <button id="kill" type="button" aria-pressed="true">KILL SWITCH ON</button>
+        <p>This is a safety status, not a judge control. It is intentionally locked ON during the public demo.</p>
+        <button id="kill" type="button" aria-pressed="true" disabled>KILL SWITCH LOCKED ON</button>
         <p class="status" id="kill-state">BLOCKED · server execution path closed</p>
       </article>
 
