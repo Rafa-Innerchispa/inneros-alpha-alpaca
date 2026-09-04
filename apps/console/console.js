@@ -23,7 +23,7 @@ const sameOriginApi = window.location.pathname.startsWith("/console")
   : "http://127.0.0.1:8088";
 const API_BASE = (params.get("api") || window.INNEROS_ALPHA_API || sameOriginApi).replace(/\/$/, "");
 const api = window.createAlpacaApiClient
-  ? window.createAlpacaApiClient({ baseUrl: API_BASE })
+  ? window.createAlpacaApiClient({ baseUrl: API_BASE, timeoutMs: 45000 })
   : null;
 
 const kill = document.getElementById("kill");
