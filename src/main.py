@@ -52,8 +52,8 @@ SESSION_COOKIE = "inneros_judge_session"
 PUBLIC_PATHS = {"/health", "/login", "/api/auth/status"}
 DEFAULT_JUDGE_USER = "lablab-judge"
 DEFAULT_JUDGE_PBKDF2_ITERATIONS = 310000
-DEFAULT_JUDGE_PBKDF2_SALT = "ThlaGJKgxlTCN-ngUpaAHA"
-DEFAULT_JUDGE_PBKDF2_HASH = "MoZNbdY_feS5byGZFIeO_vlbviWxAdugrVDY2EhKTlo"
+DEFAULT_JUDGE_PBKDF2_SALT = "gjmAcj3zZiw146XwnQOhIg"
+DEFAULT_JUDGE_PBKDF2_HASH = "qy9HMzp00C446MWrDChTIzIFedm91jjpGMf7LWEsGx4"
 _judge_sessions: dict[str, int] = {}
 
 
@@ -66,8 +66,6 @@ def _judge_user() -> str:
 
 
 def _judge_auth_configured() -> bool:
-    # A strong temporary judge credential is represented only by a PBKDF2 hash in source.
-    # Production may override it with server-side INNEROS_JUDGE_USER/PASSWORD values.
     return True
 
 
