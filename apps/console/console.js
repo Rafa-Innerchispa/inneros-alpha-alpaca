@@ -340,9 +340,10 @@ async function boot() {
   if (window.applyShellChrome) window.applyShellChrome(moduleEntry);
   setTruth("LOADING", `probing ${API_BASE}`);
   try {
-    const [health, portfolio, killStateResponse, readiness, mcp] = await Promise.all([
-      api.health(), api.portfolio(), api.getKillSwitch(), api.ready(), api.mcpStatus(),
+    const [health, portfolio, killStateResponse, readiness] = await Promise.all([
+      api.health(), api.portfolio(), api.getKillSwitch(), api.ready(),
     ]);
+    const mcp = readiness?.alpaca_mcp || {};
     backendOnline = Boolean(health.ok);
     setBadge(backendBadge, backendOnline ? "API LIVE" : "API FAIL", backendOnline ? "live" : "fixture");
     killOn = Boolean(killStateResponse.enabled);
