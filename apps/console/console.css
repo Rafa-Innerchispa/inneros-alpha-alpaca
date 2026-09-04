@@ -50,10 +50,12 @@ h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: v
 .boundary-card strong { font-size: 13px; }
 .boundary-card span { color: #91a8b9; font-size: 11px; line-height: 1.4; }
 .arrow { display: grid; place-items: center; color: var(--accent); font-weight: 900; }
-.agent-mesh { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; padding: 12px 24px 0; }
-.agent-mesh div { min-width: 0; border: 1px solid var(--line); border-radius: 11px; padding: 10px; background: #08111c; display: grid; gap: 5px; }
+.pipeline-label { margin: 14px 24px 0; color: var(--muted); font-size: 9px; letter-spacing: .12em; font-weight: 900; }
+.agent-mesh { display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px; padding: 8px 24px 0; }
+.agent-mesh div { min-width: 0; border-top: 2px solid #244d67; padding: 9px 8px 6px; background: rgba(8,17,28,.55); display: grid; gap: 4px; }
 .agent-mesh b { color: #43647d; font-size: 9px; }
 .agent-mesh strong { font-size: 11px; line-height: 1.2; }
+.agent-mesh span { color: #8fa7b9; font-size: 9px; line-height: 1.35; }
 .agent-mesh small { color: var(--accent); font-size: 8px; letter-spacing: .05em; }
 .layout { display: grid; grid-template-columns: minmax(440px, 58%) 1fr; gap: 16px; padding: 16px 24px 32px; }
 .col { display: flex; flex-direction: column; gap: 16px; }
@@ -69,6 +71,10 @@ dd { margin: 0; font-weight: 800; }
 .controls select, .controls button { min-height: 42px; border-radius: 9px; border: 1px solid var(--line); background: #09121e; color: var(--text); padding: 8px 10px; }
 .controls button { align-self: end; cursor: pointer; font-weight: 900; color: #031019; border: 0; background: linear-gradient(135deg, #58e6ff, #6689ff); }
 .controls button:disabled { cursor: progress; opacity: .6; }
+.analysis-progress { margin-top: 9px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #08111c; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.analysis-progress.running { color: var(--accent); border-color: #285b78; box-shadow: inset 0 0 26px rgba(97,220,255,.04); }
+.analysis-progress.complete { color: var(--pass); border-color: #245d48; }
+.analysis-progress.failed { color: var(--fail); border-color: #66303a; }
 .secondary-action { width: 100%; margin-top: 8px; min-height: 38px; border-radius: 9px; border: 1px solid #30557f; background: #0b1c30; color: #9fc8ff; font-weight: 800; cursor: pointer; }
 .pipeline { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
 .pipeline li { display: grid; grid-template-columns: 118px 1fr auto; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 10px; animation: stage-in .38s ease both; background: #08111c; }
@@ -99,7 +105,7 @@ dd { margin: 0; font-weight: 800; }
 .proof-grid small { display: block; color: var(--muted); margin-bottom: 5px; }
 .proof-grid code { display: block; color: var(--accent); overflow-wrap: anywhere; font-size: 10px; }
 .proof-grid strong { color: var(--pass); }
-.kill button { margin-top: 10px; width: 100%; border: 0; border-radius: 10px; padding: 12px; background: #5a1d24; color: #ffd4d8; font-weight: 800; cursor: pointer; }
+.kill button { margin-top: 10px; width: 100%; border: 1px solid #69333a; border-radius: 10px; padding: 12px; background: #35171c; color: #ffd4d8; font-weight: 800; cursor: not-allowed; opacity: .9; }
 .kill button.off { background: #163528; color: var(--pass); }
 .empty, .hint, .status { color: var(--muted); font-size: 12px; }
 .judge-callout { margin: 12px 0; padding: 12px; border: 1px solid #30557f; background: #0b1c30; border-radius: 10px; color: #cfe3ff; font-size: 12px; line-height: 1.5; }
