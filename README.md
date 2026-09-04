@@ -8,6 +8,14 @@ Public judge console: `https://alpaca.creatorcore.ai/console/`
 
 The product is not a standalone trading bot. It is a detachable InnerOS financial module where an AI strategy agent can propose a structured `TradeIntent`, but deterministic code owns contract selection, risk approval, the server kill switch, duplicate protection, and broker execution.
 
+## Local data sovereignty
+
+InnerOS Alpha is designed as a sovereign financial agent rather than a cloud-hosted trading bot. Alpaca remains the trusted broker and market-data boundary, but strategy reasoning runs on owned local AMD infrastructure through a private vLLM endpoint. After Alpaca market/account context is ingested into a bounded `MarketSnapshot`, the reasoning step stays local.
+
+The LLM never receives broker credentials, never talks to the write-capable Trading API directly, and never has authority to place an order. It can only return a structured intent. Deterministic services then choose the contract, apply risk rules, enforce the kill switch, execute only against Alpaca PAPER when explicitly allowed, and write evidence under the same `correlation_id`.
+
+For judges, this means the demo is not asking them to trust an opaque AI trader. It shows an auditable control plane where local agents can reason, Alpaca can provide live financial context, and deterministic code remains the authority for financial safety.
+
 ## Current working spine
 
 ```text
@@ -40,6 +48,17 @@ same correlation_id end-to-end
 ```
 
 If local reasoning is unreachable or returns invalid JSON, the system fails closed into `NO_TRADE`. If the broker is not configured, execution is `BLOCKED`. The UI never invents fills or P&L.
+
+## Judge architecture at a glance
+
+- **Market Scout** reads Alpaca market/account context through PAPER-safe runtime adapters.
+- **Local Strategy Agent** runs on private Qwen3-Coder/vLLM infrastructure and produces a bounded `TradeIntent`.
+- **Options Engineer** deterministically filters Alpaca option-chain candidates.
+- **Risk Sentinel** applies portfolio, loss, stale-data, duplicate and kill-switch gates.
+- **Execution Agent** is the only component allowed to call the Alpaca Trading API, and only in PAPER mode.
+- **Evidence/Audit** persists the decision path, broker response and final state under one `correlation_id`.
+
+The public judge route can be protected by an authenticated InnerOS gateway. Credentials and access tokens belong in protected runtime configuration only; they are never committed to Git or embedded in the public console.
 
 ## Alpaca MCP and Trading API
 
