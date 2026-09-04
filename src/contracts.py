@@ -40,16 +40,29 @@ class DeterministicContractSelector:
         candidates: list[OptionContractCandidate],
         today: date | None = None,
     ) -> ContractSelection:
+        scanned = len(candidates)
+        counts = {
+            "raw": scanned,
+            "tradable_type": 0,
+            "dte": 0,
+            "strike": 0,
+            "spread": 0,
+            "eligible": 0,
+        }
         if intent.correlation_id != snapshot.correlation_id:
             return ContractSelection(
                 status="BLOCKED",
                 reason="Correlation mismatch between market snapshot and trade intent",
+                candidates_scanned=scanned,
+                filter_counts=counts,
                 correlation_id=intent.correlation_id,
             )
         if intent.bias == "NEUTRAL" or intent.strategy == "no_trade":
             return ContractSelection(
                 status="NO_TRADE",
                 reason="Neutral/no-trade intent requires no contract selection",
+                candidates_scanned=scanned,
+                filter_counts=counts,
                 correlation_id=intent.correlation_id,
             )
 
@@ -68,14 +81,21 @@ class DeterministicContractSelector:
                 continue
             if contract.option_type != option_type:
                 continue
+            counts["tradable_type"] += 1
+
             dte = (contract.expiration_date - today).days
             if dte < self.policy.min_dte or dte > self.policy.max_dte:
                 continue
+            counts["dte"] += 1
+
             if not (min_strike <= contract.strike_price <= max_strike):
                 continue
+            counts["strike"] += 1
+
             spread = self._spread_pct(contract)
             if spread is None or spread > self.policy.max_spread_pct:
                 continue
+            counts["spread"] += 1
 
             dte_distance = abs(dte - target_dte)
             strike_distance = abs(contract.strike_price - snapshot.price) / max(snapshot.price, 1)
@@ -87,10 +107,14 @@ class DeterministicContractSelector:
             score = (float(dte_distance), delta_distance, spread + strike_distance, liquidity_tiebreak)
             scored.append((score, contract, spread))
 
+        counts["eligible"] = len(scored)
         if not scored:
             return ContractSelection(
                 status="NO_TRADE",
                 reason="No tradable contract passed DTE, strike, quote, and spread gates",
+                candidates_scanned=scanned,
+                candidates_eligible=0,
+                filter_counts=counts,
                 correlation_id=intent.correlation_id,
             )
 
@@ -103,6 +127,9 @@ class DeterministicContractSelector:
             reason="Deterministic contract policy selected the best eligible contract",
             estimated_max_loss=estimated_max_loss,
             spread_pct=spread,
+            candidates_scanned=scanned,
+            candidates_eligible=len(scored),
+            filter_counts=counts,
             correlation_id=intent.correlation_id,
         )
 

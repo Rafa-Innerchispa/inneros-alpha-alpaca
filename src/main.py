@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import html
 import os
 import secrets
+import time
 import uuid
 from pathlib import Path
+from urllib.parse import parse_qs, quote
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -21,7 +27,7 @@ class KillSwitchRequest(BaseModel):
     enabled: bool
 
 
-app = FastAPI(title="InnerOS Alpha", version="0.8.0")
+app = FastAPI(title="InnerOS Alpha", version="0.9.0")
 
 origins = [
     origin.strip()
@@ -34,7 +40,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "X-InnerOS-Admin-Token"],
 )
@@ -42,6 +48,86 @@ app.add_middleware(
 pipeline = PipelineService()
 adapter = pipeline.adapter
 risk_engine = pipeline.risk_engine
+
+SESSION_COOKIE = "inneros_judge_session"
+PUBLIC_PATHS = {"/health", "/login", "/api/auth/status"}
+
+
+def _judge_auth_values() -> tuple[str, str, str]:
+    return (
+        (os.getenv("INNEROS_JUDGE_USER") or "").strip(),
+        (os.getenv("INNEROS_JUDGE_PASSWORD") or "").strip(),
+        (os.getenv("INNEROS_JUDGE_SESSION_SECRET") or "").strip(),
+    )
+
+
+def _judge_auth_configured() -> bool:
+    return all(_judge_auth_values())
+
+
+def _judge_auth_required() -> bool:
+    return (os.getenv("INNEROS_JUDGE_AUTH_REQUIRED") or "false").strip().lower() == "true"
+
+
+def _safe_next(value: str | None) -> str:
+    candidate = (value or "/console/").strip()
+    if not candidate.startswith("/") or candidate.startswith("//"):
+        return "/console/"
+    return candidate
+
+
+def _session_token(username: str) -> str:
+    _, _, secret = _judge_auth_values()
+    ttl = max(int(os.getenv("INNEROS_JUDGE_SESSION_TTL", "21600")), 300)
+    expires = int(time.time()) + ttl
+    payload = f"{username}:{expires}"
+    signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    raw = f"{payload}:{signature}".encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _session_valid(token: str | None) -> bool:
+    username, _, secret = _judge_auth_values()
+    if not token or not username or not secret:
+        return False
+    try:
+        padded = token + ("=" * (-len(token) % 4))
+        raw = base64.urlsafe_b64decode(padded.encode()).decode()
+        token_user, expires_raw, signature = raw.split(":", 2)
+        expires = int(expires_raw)
+        payload = f"{token_user}:{expires}"
+        expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        return (
+            secrets.compare_digest(token_user, username)
+            and expires >= int(time.time())
+            and secrets.compare_digest(signature, expected)
+        )
+    except Exception:
+        return False
+
+
+def _is_public_path(path: str) -> bool:
+    return path in PUBLIC_PATHS or path.startswith("/login?")
+
+
+@app.middleware("http")
+async def judge_access_gate(request: Request, call_next):
+    path = request.url.path
+    if request.method == "OPTIONS" or _is_public_path(path) or not _judge_auth_required():
+        return await call_next(request)
+    if not _judge_auth_configured():
+        if path.startswith("/api/"):
+            return JSONResponse({"detail": "Judge access is not configured"}, status_code=503)
+        return HTMLResponse(
+            "<h1>InnerOS Alpha</h1><p>Judge access is temporarily unavailable.</p>",
+            status_code=503,
+        )
+    if _session_valid(request.cookies.get(SESSION_COOKIE)):
+        return await call_next(request)
+    if path.startswith("/api/"):
+        return JSONResponse({"detail": "Authentication required"}, status_code=401)
+    target = quote(request.url.path + (f"?{request.url.query}" if request.url.query else ""), safe="/?=&")
+    return RedirectResponse(url=f"/login?next={target}", status_code=303)
 
 
 def _admin_write_gate_configured() -> bool:
@@ -62,7 +148,7 @@ def _require_admin_token(provided: str | None) -> None:
 
 @app.get("/health")
 def health() -> dict:
-    """Fast liveness endpoint. Never probes external services or returns secrets."""
+    """Fast public liveness endpoint. Never probes external services or returns secrets."""
     return {
         "ok": True,
         "service": "inneros-alpha",
@@ -71,6 +157,8 @@ def health() -> dict:
         "alpaca_configured": adapter.configured,
         "kill_switch": pipeline.kill_switch,
         "admin_write_gate_configured": _admin_write_gate_configured(),
+        "judge_auth_configured": _judge_auth_configured(),
+        "judge_auth_required": _judge_auth_required(),
         "reasoning_provider": "local-amd-5",
         "reasoning_model": pipeline.reasoner.model,
         "evidence_backend": pipeline.evidence.backend,
@@ -78,9 +166,66 @@ def health() -> dict:
     }
 
 
+@app.get("/api/auth/status")
+def auth_status() -> dict:
+    return {
+        "configured": _judge_auth_configured(),
+        "required": _judge_auth_required(),
+        "protected_console": True,
+        "session_cookie": True,
+    }
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(next: str = "/console/", error: str = "") -> str:
+    message = "Invalid credentials" if error else ""
+    target = html.escape(_safe_next(next), quote=True)
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>InnerOS Alpha · Judge Access</title>
+<style>
+*{{box-sizing:border-box}} body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#050a12;color:#eaf7ff;font-family:Inter,system-ui,sans-serif;background-image:radial-gradient(circle at 20% 10%,#07324a 0,transparent 34%),radial-gradient(circle at 80% 80%,#102453 0,transparent 34%)}}
+.shell{{width:min(92vw,520px);padding:34px;border:1px solid #1d5874;background:rgba(5,14,25,.92);box-shadow:0 24px 80px #0009;border-radius:22px}} .k{{font-size:12px;letter-spacing:.18em;color:#62e6ff;text-transform:uppercase}} h1{{font-size:34px;margin:10px 0 8px}} p{{color:#a8c5d4;line-height:1.55}} .badges{{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}} .b{{font-size:11px;border:1px solid #27657d;border-radius:999px;padding:7px 10px;color:#8feaff;background:#082233}} label{{display:block;margin:15px 0 6px;color:#bdd7e3;font-size:13px}} input{{width:100%;padding:13px 14px;background:#07121e;color:white;border:1px solid #285269;border-radius:10px;outline:none}} input:focus{{border-color:#4de1ff;box-shadow:0 0 0 3px #2ac5e522}} button{{margin-top:18px;width:100%;padding:14px;border:0;border-radius:10px;background:linear-gradient(135deg,#50e8ff,#4d85ff);font-weight:800;color:#031019;cursor:pointer}} .err{{color:#ff9c9c;min-height:20px}}
+</style></head><body><main class="shell"><div class="k">Sovereign Financial Agents · Judge Portal</div><h1>InnerOS Alpha</h1><p>Protected access to a local-first Alpaca PAPER control plane. Reasoning runs on owned AMD infrastructure. Broker credentials never enter the LLM.</p><div class="badges"><span class="b">LOCAL QWEN</span><span class="b">ALPACA MCP READ ONLY</span><span class="b">PAPER ONLY</span><span class="b">AUDITED</span></div><div class="err">{html.escape(message)}</div><form method="post" action="/login"><input type="hidden" name="next" value="{target}"><label>Judge username</label><input name="username" autocomplete="username" required autofocus><label>Password</label><input name="password" type="password" autocomplete="current-password" required><button type="submit">ENTER SOVEREIGN CONSOLE</button></form></main></body></html>"""
+
+
+@app.post("/login")
+async def login_submit(request: Request):
+    if not _judge_auth_configured():
+        return RedirectResponse(url="/login?error=config", status_code=303)
+    body = (await request.body()).decode(errors="ignore")
+    form = parse_qs(body)
+    username = (form.get("username") or [""])[0]
+    password = (form.get("password") or [""])[0]
+    target = _safe_next((form.get("next") or ["/console/"])[0])
+    expected_user, expected_password, _ = _judge_auth_values()
+    if not (
+        secrets.compare_digest(username, expected_user)
+        and secrets.compare_digest(password, expected_password)
+    ):
+        return RedirectResponse(url=f"/login?next={quote(target, safe='/')}&error=1", status_code=303)
+    response = RedirectResponse(url=target, status_code=303)
+    response.set_cookie(
+        SESSION_COOKIE,
+        _session_token(expected_user),
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=max(int(os.getenv("INNEROS_JUDGE_SESSION_TTL", "21600")), 300),
+        path="/",
+    )
+    return response
+
+
+@app.get("/logout")
+def logout():
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
 @app.get("/ready")
 def ready() -> dict:
-    """Redacted dependency preflight for demo/runtime orchestration."""
     reasoning = pipeline.reasoner.status()
     analysis_ready = bool(reasoning.get("reachable") and reasoning.get("model_available"))
     mcp = alpaca_mcp_readiness()
@@ -106,6 +251,8 @@ def ready() -> dict:
         "paper_execution_armed": bool(paper_path_ready and not pipeline.kill_switch and admin_gate),
         "kill_switch": pipeline.kill_switch,
         "admin_write_gate_configured": admin_gate,
+        "judge_auth_configured": _judge_auth_configured(),
+        "judge_auth_required": _judge_auth_required(),
         "reasoning": reasoning,
         "alpaca": {
             "credentials_present": adapter.configured,
@@ -118,15 +265,48 @@ def ready() -> dict:
     }
 
 
+@app.get("/api/sovereignty")
+def sovereignty() -> dict:
+    policy = risk_engine.policy
+    return {
+        "local_reasoning": {
+            "provider": "local-amd-5",
+            "runtime": "vllm",
+            "model": pipeline.reasoner.model,
+            "owned_infrastructure": True,
+            "broker_credentials_visible_to_llm": False,
+        },
+        "data_boundary": {
+            "market_source": "Alpaca",
+            "reasoning_location": "owner-controlled local AMD infrastructure",
+            "external_llm_calls": False,
+            "evidence_persisted_locally": True,
+        },
+        "authority": {
+            "alpaca_mcp_read_only": True,
+            "contract_selection": "deterministic",
+            "risk_engine": "deterministic",
+            "paper_only": True,
+            "kill_switch": pipeline.kill_switch,
+        },
+        "risk_policy": {
+            "max_risk_per_trade_pct": policy.max_risk_per_trade_pct,
+            "max_daily_loss_pct": policy.max_daily_loss_pct,
+            "max_open_positions": policy.max_open_positions,
+            "min_dte": policy.min_dte,
+            "max_dte": policy.max_dte,
+            "max_snapshot_age_seconds": policy.max_snapshot_age_seconds,
+        },
+    }
+
+
 @app.get("/api/mcp/status")
 def mcp_status() -> dict:
-    """Return the redacted Alpaca MCP safety/readiness contract."""
     return alpaca_mcp_readiness().public_dict()
 
 
 @app.get("/api/submission/status")
 def submission_status() -> dict:
-    """Return truthful code-vs-submission readiness without exposing secrets."""
     return submission_readiness().public_dict()
 
 

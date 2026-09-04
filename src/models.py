@@ -41,6 +41,9 @@ class TradeIntent(BaseModel):
     dte_target: int | None = None
     delta_target: float | None = None
     rationale: str
+    evidence: list[str] = Field(default_factory=list)
+    invalidation: str | None = None
+    main_risk: str | None = None
     estimated_max_loss: float = Field(ge=0)
     option_symbol: str | None = None
     quantity: int = Field(default=1, ge=1, le=10)
@@ -67,6 +70,9 @@ class ContractSelection(BaseModel):
     reason: str
     estimated_max_loss: float = 0
     spread_pct: float | None = None
+    candidates_scanned: int = 0
+    candidates_eligible: int = 0
+    filter_counts: dict[str, int] = Field(default_factory=dict)
     correlation_id: str
 
 
@@ -120,6 +126,7 @@ class PipelineResult(BaseModel):
     snapshot: MarketSnapshot
     intent: TradeIntent
     contract_selection: ContractSelection | None = None
+    portfolio: PortfolioView | None = None
     risk: RiskDecision
     execution: ExecutionResult
     trace: list[TraceEvent] = Field(default_factory=list)

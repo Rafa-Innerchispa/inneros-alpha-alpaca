@@ -79,6 +79,12 @@ class PipelineService:
     def _select_contract(self, snapshot, intent: TradeIntent) -> tuple[TradeIntent, ContractSelection]:
         if intent.bias == "NEUTRAL" or intent.strategy == "no_trade":
             selection = self.contract_selector.select(snapshot=snapshot, intent=intent, candidates=[])
+            snapshot.option_chain_summary = {
+                "status": selection.status,
+                "scanned": 0,
+                "eligible": 0,
+                "filters": selection.filter_counts,
+            }
             return intent, selection
 
         option_type = "call" if intent.bias == "BULLISH" else "put"
@@ -94,6 +100,14 @@ class PipelineService:
             intent=intent,
             candidates=candidates,
         )
+        snapshot.option_chain_summary = {
+            "status": selection.status,
+            "option_type": option_type,
+            "scanned": selection.candidates_scanned,
+            "eligible": selection.candidates_eligible,
+            "filters": selection.filter_counts,
+            "source": "alpaca_options_contracts_plus_snapshots",
+        }
         if selection.status == "SELECTED":
             return self.contract_selector.apply_to_intent(intent, selection), selection
 
@@ -106,6 +120,24 @@ class PipelineService:
         no_trade.rationale = f"{intent.rationale} | Contract gate: {selection.reason}"
         return no_trade, selection
 
+    @staticmethod
+    def _technical_summary(snapshot) -> str:
+        tech = snapshot.technicals or {}
+        parts = [f"{snapshot.ticker} price={snapshot.price}", f"freshness={snapshot.freshness_seconds:.1f}s"]
+        for key, label in (
+            ("return_5m_pct", "5m"),
+            ("return_15m_pct", "15m"),
+            ("return_60m_pct", "60m"),
+        ):
+            value = tech.get(key)
+            if value is not None:
+                parts.append(f"{label}={value:+.3f}%")
+        if tech.get("trend"):
+            parts.append(f"trend={tech['trend']}")
+        if tech.get("bars_available") is False:
+            parts.append("bars=unavailable")
+        return " ".join(parts)
+
     def run(self, ticker: str, execute: bool = False) -> PipelineResult:
         correlation_id = str(uuid.uuid4())
         trace: list[TraceEvent] = []
@@ -115,24 +147,28 @@ class PipelineService:
         self._append(
             trace,
             source=snapshot.source,
-            from_agent="alpaca-market",
-            to_agent="strategy-agent",
+            from_agent="market-scout",
+            to_agent="quant-analyst",
             event="market_snapshot",
             status=market_state,
-            detail=f"{snapshot.ticker} price={snapshot.price} freshness={snapshot.freshness_seconds:.1f}s",
+            detail=self._technical_summary(snapshot),
             correlation_id=correlation_id,
         )
 
         intent = self.reasoner.propose(snapshot)
         strategy_state = TruthState.NO_TRADE if intent.bias == "NEUTRAL" or intent.strategy == "no_trade" else TruthState.LIVE
+        evidence_preview = "; ".join(intent.evidence[:3]) if intent.evidence else intent.rationale
         self._append(
             trace,
             source="LOCAL_QWEN",
-            from_agent="strategy-agent",
-            to_agent="contract-selector",
+            from_agent="local-qwen-strategy",
+            to_agent="options-engineer",
             event="trade_intent",
             status=strategy_state,
-            detail=f"{intent.strategy} {intent.bias} confidence={intent.confidence:.2f}",
+            detail=(
+                f"{intent.strategy} {intent.bias} confidence={intent.confidence:.2f}; "
+                f"evidence={evidence_preview[:240]}"
+            ),
             correlation_id=correlation_id,
         )
 
@@ -142,18 +178,22 @@ class PipelineService:
             "NO_TRADE": TruthState.NO_TRADE,
             "BLOCKED": TruthState.BLOCKED,
         }[selection.status]
-        contract_detail = selection.reason
+        contract_detail = (
+            f"scanned={selection.candidates_scanned} eligible={selection.candidates_eligible}; {selection.reason}"
+        )
         if selection.contract is not None:
             contract_detail = (
-                f"{selection.contract.symbol} strike={selection.contract.strike_price} "
-                f"expiry={selection.contract.expiration_date.isoformat()} "
+                f"scanned={selection.candidates_scanned} eligible={selection.candidates_eligible}; "
+                f"selected={selection.contract.symbol} strike={selection.contract.strike_price} "
+                f"expiry={selection.contract.expiration_date.isoformat()} delta={selection.contract.delta} "
+                f"bid={selection.contract.bid_price} ask={selection.contract.ask_price} "
                 f"spread={selection.spread_pct:.3f} max_loss={selection.estimated_max_loss:.2f}"
             )
         self._append(
             trace,
-            source="DETERMINISTIC",
-            from_agent="contract-selector",
-            to_agent="risk-engine",
+            source="ALPACA_READ_ONLY+DETERMINISTIC",
+            from_agent="options-engineer",
+            to_agent="risk-sentinel",
             event="contract_selection",
             status=contract_state,
             detail=contract_detail,
@@ -174,14 +214,19 @@ class PipelineService:
             "NO_TRADE": TruthState.NO_TRADE,
             "BLOCKED": TruthState.BLOCKED,
         }[risk.status]
+        proposed_loss = float(intent.estimated_max_loss or 0)
+        gates = ", ".join(risk.triggered_gates) if risk.triggered_gates else "none"
         self._append(
             trace,
             source="DETERMINISTIC",
-            from_agent="risk-engine",
-            to_agent="execution-agent",
+            from_agent="risk-sentinel",
+            to_agent="execution-gate",
             event="risk_decision",
             status=risk_state,
-            detail=(risk.status if not risk.triggered_gates else f"{risk.status}: {', '.join(risk.triggered_gates)}"),
+            detail=(
+                f"{risk.status}; equity={portfolio.equity:.2f} open_positions={portfolio.open_positions} "
+                f"allowed_max_loss={risk.max_loss:.2f} proposed_max_loss={proposed_loss:.2f} gates={gates}"
+            ),
             correlation_id=correlation_id,
         )
 
@@ -191,7 +236,7 @@ class PipelineService:
                 message="Analysis-only run; execute=false, no broker request sent",
                 correlation_id=correlation_id,
             )
-            execution_state = TruthState.NO_TRADE
+            execution_state = TruthState.BLOCKED
         elif self.kill_switch:
             execution = ExecutionResult(
                 status="blocked",
@@ -205,12 +250,12 @@ class PipelineService:
 
         self._append(
             trace,
-            source="ALPACA_PAPER",
-            from_agent="execution-agent",
+            source="ALPACA_PAPER_GATE",
+            from_agent="execution-gate",
             to_agent="evidence-store",
             event="execution_result",
             status=execution_state,
-            detail=f"{execution.status}: {execution.message}",
+            detail=f"{execution.status}: {execution.message}; kill_switch={'ON' if self.kill_switch else 'OFF'}",
             correlation_id=correlation_id,
         )
 
@@ -219,6 +264,7 @@ class PipelineService:
             snapshot=snapshot,
             intent=intent,
             contract_selection=selection,
+            portfolio=portfolio,
             risk=risk,
             execution=execution,
             trace=trace,
