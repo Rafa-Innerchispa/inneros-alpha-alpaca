@@ -52,8 +52,8 @@ SESSION_COOKIE = "inneros_judge_session"
 PUBLIC_PATHS = {"/health", "/login", "/api/auth/status"}
 DEFAULT_JUDGE_USER = "lablab-judge"
 DEFAULT_JUDGE_PBKDF2_ITERATIONS = 310000
-DEFAULT_JUDGE_PBKDF2_SALT = "HMVlcJHfrG8Pgszg9yY1tA"
-DEFAULT_JUDGE_PBKDF2_HASH = "cpcjefAHIZSasxLJuAOjsdjZlT1kzDdnsSmYe6y2Q60"
+DEFAULT_JUDGE_PBKDF2_SALT = "ThlaGJKgxlTCN-ngUpaAHA"
+DEFAULT_JUDGE_PBKDF2_HASH = "MoZNbdY_feS5byGZFIeO_vlbviWxAdugrVDY2EhKTlo"
 _judge_sessions: dict[str, int] = {}
 
 
